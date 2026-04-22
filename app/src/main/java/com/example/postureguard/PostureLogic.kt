@@ -37,7 +37,7 @@ object PostureLogic {
     private const val TRUNK_INCLINATION_THRESHOLD_DEG = 20.0
 
     // Minimum landmark visibility to trust a measurement
-    private const val MIN_VISIBILITY = 0.5f
+    private const val MIN_VISIBILITY = 0.3f
 
     /**
      * Analyze posture from 2D normalized landmarks (front camera).
@@ -131,6 +131,7 @@ object PostureLogic {
         landmarks3d: List<Landmark3D>?,
         fps: Double
     ): PostureDiagnosis {
+        val has3d = landmarks3d != null
         val result3d = landmarks3d?.let { analyze3d(it) }
 
         // 3D bad → return immediately
@@ -139,7 +140,7 @@ object PostureLogic {
                 state = result3d.state,
                 cva = result3d.cva,
                 trunkAngle = result3d.trunkAngle,
-                hasWorldLandmarks = true,
+                hasWorldLandmarks = has3d,
                 fps = fps
             )
         }
@@ -150,7 +151,7 @@ object PostureLogic {
                 state = result2d,
                 cva = result3d?.cva,
                 trunkAngle = result3d?.trunkAngle,
-                hasWorldLandmarks = result3d != null,
+                hasWorldLandmarks = has3d,
                 fps = fps
             )
         }
@@ -160,7 +161,7 @@ object PostureLogic {
             state = if (good) PostureState.GOOD else PostureState.NO_PERSON,
             cva = result3d?.cva,
             trunkAngle = result3d?.trunkAngle,
-            hasWorldLandmarks = result3d != null,
+            hasWorldLandmarks = has3d,
             fps = fps
         )
     }

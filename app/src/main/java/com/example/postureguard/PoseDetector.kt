@@ -67,8 +67,9 @@ class PoseDetector(context: Context) {
             Landmark3D(lm.x().toDouble(), lm.y().toDouble(), lm.z().toDouble(), lm.visibility().orElse(0.0f))
         }
 
-        val world = if (result.worldLandmarks().isNotEmpty()) {
-            result.worldLandmarks()[0].map { lm ->
+        val worldLandmarks = result.worldLandmarks()
+        val world = if (worldLandmarks.isNotEmpty()) {
+            worldLandmarks[0].map { lm ->
                 Landmark3D(lm.x().toDouble(), lm.y().toDouble(), lm.z().toDouble(), lm.visibility().orElse(0.0f))
             }
         } else {
