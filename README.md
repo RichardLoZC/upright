@@ -17,7 +17,11 @@
 
 ---
 
-## Features
+<p align="center">
+  English | <a href="README_CN.md">中文</a>
+</p>
+
+---
 
 - **3D biomechanical analysis** — Uses MediaPipe World Landmarks to compute CVA (Craniovertebral Angle) and Trunk Inclination for clinical-grade forward head and hunchback detection
 - **2D + 3D fusion** — Head tilt and shoulder asymmetry from normalized 2D landmarks; forward head and hunchback from 3D world coordinates
