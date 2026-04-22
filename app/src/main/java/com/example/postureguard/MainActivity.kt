@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -160,6 +161,7 @@ fun CameraScreen(
     var isEcoMode by remember { mutableStateOf(false) }
     var showDebug by remember { mutableStateOf(true) }
     var diagnosis by remember { mutableStateOf<PostureDiagnosis?>(null) }
+    var skeletonLandmarks by remember { mutableStateOf<List<Landmark3D>?>(null) }
 
     // Bind camera once, not on every recomposition
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
@@ -184,9 +186,10 @@ fun CameraScreen(
                                 .build()
 
                             imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-                                processImage(imageProxy, poseDetector, smoother) { diag ->
+                                processImage(imageProxy, poseDetector, smoother) { diag, landmarks ->
                                     currentPosture = diag.state
                                     diagnosis = diag
+                                    skeletonLandmarks = landmarks
                                     onPostureDetected(diag.state)
                                 }
                             }
@@ -219,6 +222,32 @@ fun CameraScreen(
                     Text("省电模式", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("检测仍在后台运行", color = Color.Gray, fontSize = 14.sp)
+                }
+            }
+        }
+
+        // Skeleton overlay
+        if (showDebug && skeletonLandmarks != null) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val lm = skeletonLandmarks!!
+                for ((a, b) in SKELETON_CONNECTIONS) {
+                    val la = lm.getOrNull(a) ?: continue
+                    val lb = lm.getOrNull(b) ?: continue
+                    if (la.visibility < 0.5f || lb.visibility < 0.5f) continue
+                    drawLine(
+                        color = Color(0xFF00FF00).copy(alpha = 0.5f),
+                        start = Offset(la.x.toFloat() * size.width, la.y.toFloat() * size.height),
+                        end = Offset(lb.x.toFloat() * size.width, lb.y.toFloat() * size.height),
+                        strokeWidth = 4f
+                    )
+                }
+                for (point in lm) {
+                    if (point.visibility < 0.5f) continue
+                    drawCircle(
+                        color = Color.Yellow,
+                        radius = 6f,
+                        center = Offset(point.x.toFloat() * size.width, point.y.toFloat() * size.height)
+                    )
                 }
             }
         }
@@ -347,6 +376,15 @@ fun CameraScreen(
     }
 }
 
+private val SKELETON_CONNECTIONS = listOf(
+    0 to 7, 0 to 8,
+    11 to 12,
+    11 to 13, 13 to 15,
+    12 to 14, 14 to 16,
+    11 to 23, 12 to 24,
+    23 to 24
+)
+
 private var frameCount = 0
 private var fpsTimestamp = SystemClock.uptimeMillis()
 private var currentFps = 0.0
@@ -355,7 +393,7 @@ fun processImage(
     imageProxy: ImageProxy,
     detector: PoseDetector,
     smoother: LandmarkSmoother,
-    onResult: (PostureDiagnosis) -> Unit
+    onResult: (PostureDiagnosis, List<Landmark3D>?) -> Unit
 ) {
     val bitmap = imageProxy.toBitmap()
 
@@ -380,7 +418,7 @@ fun processImage(
 
     detector.setListener { detection ->
         if (detection.landmarks2d.isEmpty()) {
-            onResult(PostureDiagnosis(PostureState.NO_PERSON, null, null, false, currentFps))
+            onResult(PostureDiagnosis(PostureState.NO_PERSON, null, null, false, currentFps), null)
             return@setListener
         }
 
@@ -388,7 +426,7 @@ fun processImage(
         val smoothed3d = if (detection.landmarks3d.isNotEmpty()) detection.landmarks3d else null
 
         val diag = PostureLogic.analyzeWithDiagnosis(smoothed2d, smoothed3d, currentFps)
-        onResult(diag)
+        onResult(diag, smoothed2d)
     }
 
     detector.detect(rotatedBitmap, 0)
