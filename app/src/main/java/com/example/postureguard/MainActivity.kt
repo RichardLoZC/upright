@@ -170,6 +170,28 @@ fun CameraScreen(
     var diagnosis by remember { mutableStateOf<PostureDiagnosis?>(null) }
     var skeletonLandmarks by remember { mutableStateOf<List<Landmark3D>?>(null) }
     val stateMachine = remember { PostureStateMachine() }
+    var calibration by remember { mutableStateOf<PostureLogic.CalibrationProfile?>(null) }
+    var isCalibrating by remember { mutableStateOf(false) }
+    var calibCountdown by remember { mutableStateOf(0) }
+    val calibSamples = remember { mutableListOf<Pair<List<Landmark3D>, List<Landmark3D>?>>() }
+    val calibrationRef = remember { java.util.concurrent.atomic.AtomicReference<PostureLogic.CalibrationProfile?>(null) }
+
+    LaunchedEffect(isCalibrating) {
+        if (!isCalibrating) return@LaunchedEffect
+        repeat(3) {
+            calibCountdown = 3 - it
+            kotlinx.coroutines.delay(1000)
+        }
+        val profile = PostureLogic.calibrateFromSamples(calibSamples.toList())
+        if (profile != null) {
+            calibration = profile
+            calibrationRef.set(profile)
+            stateMachine.update(PostureState.GOOD)
+        }
+        calibSamples.clear()
+        isCalibrating = false
+        calibCountdown = 0
+    }
 
     // Bind camera once, not on every recomposition
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
@@ -203,7 +225,10 @@ fun CameraScreen(
                                     return@setAnalyzer
                                 }
                             }
-                            processImage(imageProxy, poseDetector, smoother) { diag, landmarks ->
+                            processImage(imageProxy, poseDetector, smoother, calibrationRef.get()) { diag, landmarks, raw2d, raw3d ->
+                                if (isCalibrating && landmarks != null) {
+                                    calibSamples.add(Pair(raw2d, raw3d))
+                                }
                                 val debounced = stateMachine.update(diag.state)
                                 currentPosture = debounced
                                 diagnosis = diag.copy(state = debounced)
@@ -367,9 +392,32 @@ fun CameraScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            // Calibration indicator
+            if (isCalibrating) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xE02196F3))
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text("校准中... $calibCountdown", color = Color.White, fontSize = 14.sp)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            } else if (calibration != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text("已校准", color = Color(0xFF64B5F6), fontSize = 12.sp)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
             // Buttons
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -384,6 +432,21 @@ fun CameraScreen(
                     )
                 ) {
                     Text(if (isEcoMode) "显示画面" else "省电模式", fontSize = 13.sp)
+                }
+                OutlinedButton(
+                    onClick = {
+                        if (!isCalibrating) {
+                            calibSamples.clear()
+                            isCalibrating = true
+                            calibCountdown = 3
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = if (calibration != null) Color(0xFF64B5F6) else Color.White
+                    )
+                ) {
+                    Text(if (isCalibrating) "校准中..." else "校准", fontSize = 13.sp)
                 }
                 OutlinedButton(
                     onClick = { showDebug = !showDebug },
@@ -416,7 +479,8 @@ fun processImage(
     imageProxy: ImageProxy,
     detector: PoseDetector,
     smoother: LandmarkSmoother,
-    onResult: (PostureDiagnosis, List<Landmark3D>?) -> Unit
+    calibration: PostureLogic.CalibrationProfile?,
+    onResult: (PostureDiagnosis, List<Landmark3D>?, List<Landmark3D>, List<Landmark3D>?) -> Unit
 ) {
     val bitmap = imageProxy.toBitmap()
 
@@ -445,15 +509,15 @@ fun processImage(
 
     detector.setListener { detection ->
         if (detection.landmarks2d.isEmpty()) {
-            onResult(PostureDiagnosis(PostureState.NO_PERSON, null, null, false, currentFps), null)
+            onResult(PostureDiagnosis(PostureState.NO_PERSON, null, null, false, currentFps), null, emptyList(), null)
             return@setListener
         }
 
         val smoothed2d = smoother.smooth(detection.landmarks2d, timestamp)
         val smoothed3d = if (detection.landmarks3d.isNotEmpty()) detection.landmarks3d else null
 
-        val diag = PostureLogic.analyzeWithDiagnosis(smoothed2d, smoothed3d, currentFps)
-        onResult(diag, smoothed2d)
+        val diag = PostureLogic.analyzeWithDiagnosis(smoothed2d, smoothed3d, currentFps, calibration)
+        onResult(diag, smoothed2d, detection.landmarks2d, smoothed3d)
     }
 
     detector.detect(rotatedBitmap, 0)
