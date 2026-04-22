@@ -22,10 +22,8 @@ class PoseDetector(context: Context) {
     private fun setupPoseLandmarker(context: Context) {
         val baseOptionsBuilder = BaseOptions.builder()
             .setModelAssetPath("pose_landmarker_full.task")
-        baseOptionsBuilder.setDelegate(Delegate.GPU)
 
         val optionsBuilder = PoseLandmarker.PoseLandmarkerOptions.builder()
-            .setBaseOptions(baseOptionsBuilder.build())
             .setMinPoseDetectionConfidence(0.5f)
             .setMinPosePresenceConfidence(0.5f)
             .setMinTrackingConfidence(0.5f)
@@ -34,11 +32,16 @@ class PoseDetector(context: Context) {
             .setErrorListener(this::returnLivestreamError)
 
         try {
-            poseLandmarker = PoseLandmarker.createFromOptions(context, optionsBuilder.build())
-        } catch (e: IllegalStateException) {
-            Log.e("PoseDetector", "MediaPipe failed to load", e)
-        } catch (e: RuntimeException) {
-            Log.e("PoseDetector", "MediaPipe failed to load", e)
+            baseOptionsBuilder.setDelegate(Delegate.GPU)
+            poseLandmarker = PoseLandmarker.createFromOptions(context, optionsBuilder.setBaseOptions(baseOptionsBuilder.build()).build())
+        } catch (e: Exception) {
+            Log.w("PoseDetector", "GPU delegate failed, falling back to CPU", e)
+            try {
+                baseOptionsBuilder.setDelegate(Delegate.CPU)
+                poseLandmarker = PoseLandmarker.createFromOptions(context, optionsBuilder.setBaseOptions(baseOptionsBuilder.build()).build())
+            } catch (e2: Exception) {
+                Log.e("PoseDetector", "CPU delegate also failed", e2)
+            }
         }
     }
 

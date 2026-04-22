@@ -107,6 +107,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        if (isTtsReady) {
+            tts.stop()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         poseDetector.close()
