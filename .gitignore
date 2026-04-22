@@ -28,3 +28,5 @@ google-services.json
 
 # Claude Code
 .claude/
+*.png
+test_images/
