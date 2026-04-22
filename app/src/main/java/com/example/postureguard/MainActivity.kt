@@ -403,6 +403,7 @@ private val SKELETON_CONNECTIONS = listOf(
 private var frameCount = 0
 private var fpsTimestamp = SystemClock.uptimeMillis()
 private var currentFps = 0.0
+private var previousBitmap: Bitmap? = null
 
 fun processImage(
     imageProxy: ImageProxy,
@@ -420,6 +421,10 @@ fun processImage(
     val rotatedBitmap = Bitmap.createBitmap(
         bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
     )
+    bitmap.recycle()
+
+    previousBitmap?.recycle()
+    previousBitmap = rotatedBitmap
 
     val timestamp = SystemClock.uptimeMillis()
 
