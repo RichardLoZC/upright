@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 
@@ -39,7 +40,11 @@ class PostureMonitorService : Service() {
         }
 
         val notification = buildNotification("坐姿监测运行中")
-        startForeground(NOTIFICATION_ID, notification)
+        startForeground(
+            NOTIFICATION_ID,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+        )
         return START_STICKY
     }
 
