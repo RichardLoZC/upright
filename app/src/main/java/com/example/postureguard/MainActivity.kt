@@ -167,51 +167,61 @@ fun CameraScreen(
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     var cameraBound by remember { mutableStateOf(false) }
 
+    val ecoModeFlag = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val ecoFrameSkip = remember { java.util.concurrent.atomic.AtomicInteger(0) }
+
     Box(modifier = Modifier.fillMaxSize()) {
-        if (!isEcoMode) {
-            AndroidView(
-                factory = { ctx ->
-                    PreviewView(ctx).apply {
-                        scaleType = PreviewView.ScaleType.FILL_CENTER
-                        post {
-                            val cameraProvider = cameraProviderFuture.get()
-                            if (cameraBound) return@post
+        AndroidView(
+            factory = { ctx ->
+                PreviewView(ctx).apply {
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
+                    post {
+                        val cameraProvider = cameraProviderFuture.get()
+                        if (cameraBound) return@post
 
-                            val preview = Preview.Builder().build()
-                            preview.setSurfaceProvider(surfaceProvider)
+                        val preview = Preview.Builder().build()
+                        preview.setSurfaceProvider(surfaceProvider)
 
-                            val imageAnalysis = ImageAnalysis.Builder()
-                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                                .build()
+                        val imageAnalysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                            .build()
 
-                            imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-                                processImage(imageProxy, poseDetector, smoother) { diag, landmarks ->
-                                    currentPosture = diag.state
-                                    diagnosis = diag
-                                    skeletonLandmarks = landmarks
-                                    onPostureDetected(diag.state)
+                        imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
+                            if (ecoModeFlag.get()) {
+                                val skip = ecoFrameSkip.incrementAndGet()
+                                if (skip % 4 != 0) {
+                                    imageProxy.close()
+                                    return@setAnalyzer
                                 }
                             }
-
-                            try {
-                                cameraProvider.unbindAll()
-                                cameraProvider.bindToLifecycle(
-                                    lifecycleOwner,
-                                    CameraSelector.DEFAULT_FRONT_CAMERA,
-                                    preview,
-                                    imageAnalysis
-                                )
-                                cameraBound = true
-                            } catch (exc: Exception) {
-                                Log.e("Camera", "Use case binding failed", exc)
+                            processImage(imageProxy, poseDetector, smoother) { diag, landmarks ->
+                                currentPosture = diag.state
+                                diagnosis = diag
+                                skeletonLandmarks = landmarks
+                                onPostureDetected(diag.state)
                             }
                         }
+
+                        try {
+                            cameraProvider.unbindAll()
+                            cameraProvider.bindToLifecycle(
+                                lifecycleOwner,
+                                CameraSelector.DEFAULT_FRONT_CAMERA,
+                                preview,
+                                imageAnalysis
+                            )
+                            cameraBound = true
+                        } catch (exc: Exception) {
+                            Log.e("Camera", "Use case binding failed", exc)
+                        }
                     }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        if (isEcoMode) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -355,7 +365,10 @@ fun CameraScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
-                    onClick = { isEcoMode = !isEcoMode },
+                    onClick = {
+                        isEcoMode = !isEcoMode
+                        ecoModeFlag.set(isEcoMode)
+                    },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.White
