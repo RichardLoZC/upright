@@ -49,7 +49,9 @@ object PostureLogic {
         val earDiffY: Double,
         val shoulderDiffY: Double,
         val cva: Double?,
-        val trunkAngle: Double?
+        val trunkAngle: Double?,
+        val boneLengths: BoneLengths? = null,
+        val rotationMatrix: RotationMatrix? = null
     )
 
     fun calibrateFromSamples(
@@ -59,6 +61,8 @@ object PostureLogic {
         val shoulderDiffs = mutableListOf<Double>()
         val cvaValues = mutableListOf<Double>()
         val trunkValues = mutableListOf<Double>()
+        val boneSamples = mutableListOf<BoneLengths>()
+        val rotationSamples = mutableListOf<RotationMatrix>()
 
         for ((lm2d, lm3d) in samples) {
             if (lm2d.size < 33) continue
@@ -70,6 +74,19 @@ object PostureLogic {
             shoulderDiffs.add(abs(ls.y - rs.y))
 
             if (lm3d != null && lm3d.size >= 33) {
+                // Calibrate bone lengths
+                BoneLengthOptimizer.calibrate(lm3d)?.let { boneSamples.add(it) }
+
+                // Calibrate rotation matrix from spine vector
+                val ls3d = lm3d[11]; val rs3d = lm3d[12]
+                val lh3d = lm3d[23]; val rh3d = lm3d[24]
+                if (ls3d.visibility >= MIN_VISIBILITY && rs3d.visibility >= MIN_VISIBILITY &&
+                    lh3d.visibility >= MIN_VISIBILITY && rh3d.visibility >= MIN_VISIBILITY) {
+                    val c7 = midpoint(ls3d, rs3d)
+                    val pelvis = midpoint(lh3d, rh3d)
+                    AffineNormalizer.fromSpineVector(pelvis, c7)?.let { rotationSamples.add(it) }
+                }
+
                 val r3d = analyze3dCalibrated(lm3d, null)
                 r3d?.cva?.let { cvaValues.add(it) }
                 r3d?.trunkAngle?.let { trunkValues.add(it) }
@@ -81,7 +98,9 @@ object PostureLogic {
             earDiffY = earDiffs.average(),
             shoulderDiffY = shoulderDiffs.average(),
             cva = cvaValues.takeIf { it.size >= 3 }?.average(),
-            trunkAngle = trunkValues.takeIf { it.size >= 3 }?.average()
+            trunkAngle = trunkValues.takeIf { it.size >= 3 }?.average(),
+            boneLengths = BoneLengthOptimizer.averageCalibration(boneSamples),
+            rotationMatrix = AffineNormalizer.averageRotation(rotationSamples)
         )
     }
 
@@ -98,7 +117,22 @@ object PostureLogic {
         calibration: CalibrationProfile? = null
     ): PostureDiagnosis {
         val has3d = landmarks3d != null
-        val result3d = landmarks3d?.let { analyze3dCalibrated(it, calibration) }
+
+        // Apply spatial refinement to 3D landmarks
+        val refined3d = landmarks3d?.let { raw3d ->
+            var refined = raw3d
+            // Step 1: Affine normalization (camera tilt compensation)
+            calibration?.rotationMatrix?.let { rot ->
+                refined = rot.applyAll(refined)
+            }
+            // Step 2: Bone-length constancy correction
+            calibration?.boneLengths?.let { bones ->
+                refined = BoneLengthOptimizer.refine(refined, bones)
+            }
+            refined
+        }
+
+        val result3d = refined3d?.let { analyze3dCalibrated(it, calibration) }
 
         // 3D bad → return immediately
         if (result3d != null && result3d.state != PostureState.GOOD) {
@@ -176,10 +210,11 @@ object PostureLogic {
         val trunkAngle = angleBetween(spineVector, vertical)
 
         val leftEar = landmarks[7]; val rightEar = landmarks[8]
-        val ear = if (leftEar.visibility >= rightEar.visibility) leftEar else rightEar
-        val cva = if (ear.visibility >= MIN_VISIBILITY) {
+        val cva = if (leftEar.visibility >= MIN_VISIBILITY || rightEar.visibility >= MIN_VISIBILITY) {
+            val ear = midpointVisible(leftEar, rightEar)
             val earRelY = ear.y - c7.y
             val earRelZ = ear.z - c7.z
+            // CVA in sagittal plane (YZ), immune to lateral bending
             Math.toDegrees(atan2(-earRelY, -earRelZ))
         } else null
 
@@ -206,6 +241,18 @@ object PostureLogic {
             (a.z + b.z) / 2.0,
             minOf(a.visibility, b.visibility)
         )
+    }
+
+    // Weighted midpoint: use only visible landmarks, fall back to the visible one
+    private fun midpointVisible(a: Landmark3D, b: Landmark3D): Landmark3D {
+        val aOk = a.visibility >= MIN_VISIBILITY
+        val bOk = b.visibility >= MIN_VISIBILITY
+        return when {
+            aOk && bOk -> midpoint(a, b)
+            aOk -> a
+            bOk -> b
+            else -> midpoint(a, b)
+        }
     }
 
     private data class Vec3(val x: Double, val y: Double, val z: Double) {
