@@ -70,7 +70,7 @@ object PostureLogic {
             shoulderDiffs.add(abs(ls.y - rs.y))
 
             if (lm3d != null && lm3d.size >= 33) {
-                val r3d = analyze3d(lm3d)
+                val r3d = analyze3dCalibrated(lm3d, null)
                 r3d?.cva?.let { cvaValues.add(it) }
                 r3d?.trunkAngle?.let { trunkValues.add(it) }
             }
@@ -85,92 +85,11 @@ object PostureLogic {
         )
     }
 
-    /**
-     * Analyze posture from 2D normalized landmarks (front camera).
-     * Detects: head tilt, shoulder asymmetry.
-     */
-    fun analyze2d(
-        landmarks: List<Landmark3D>
-    ): PostureState? {
-        if (landmarks.size < 33) return null
-
-        val leftEar = landmarks[7]
-        val rightEar = landmarks[8]
-        val leftShoulder = landmarks[11]
-        val rightShoulder = landmarks[12]
-
-        // Check visibility
-        if (leftEar.visibility < MIN_VISIBILITY || rightEar.visibility < MIN_VISIBILITY) return null
-        if (leftShoulder.visibility < MIN_VISIBILITY || rightShoulder.visibility < MIN_VISIBILITY) return null
-
-        // Head tilt (ear Y difference)
-        val earDiffY = leftEar.y - rightEar.y
-        if (earDiffY > TILT_THRESHOLD) return PostureState.BAD_TILT_LEFT
-        if (earDiffY < -TILT_THRESHOLD) return PostureState.BAD_TILT_RIGHT
-
-        // Shoulder level
-        val shoulderDiffY = abs(leftShoulder.y - rightShoulder.y)
-        if (shoulderDiffY > SHOULDER_LEVEL_THRESHOLD) return PostureState.BAD_SLOUCH
-
-        return PostureState.GOOD
-    }
-
-    /**
-     * Analyze posture from 3D World Landmarks.
-     * Uses clinical biomechanical metrics:
-     * - CVA (Craniovertebral Angle) for forward head detection
-     * - Trunk Inclination Angle for hunchback detection
-     *
-     * World Landmarks coordinate system:
-     * - Origin: midpoint of hips
-     * - X: lateral width (positive = right)
-     * - Y: vertical (negative = up)
-     * - Z: depth (negative = toward camera)
-     */
     data class Analysis3dResult(
         val state: PostureState,
         val cva: Double?,
         val trunkAngle: Double?
     )
-
-    fun analyze3d(
-        landmarks: List<Landmark3D>
-    ): Analysis3dResult? {
-        if (landmarks.size < 33) return null
-
-        val leftShoulder = landmarks[11]
-        val rightShoulder = landmarks[12]
-        val leftHip = landmarks[23]
-        val rightHip = landmarks[24]
-
-        if (leftShoulder.visibility < MIN_VISIBILITY || rightShoulder.visibility < MIN_VISIBILITY) return null
-        if (leftHip.visibility < MIN_VISIBILITY || rightHip.visibility < MIN_VISIBILITY) return null
-
-        val c7 = midpoint(leftShoulder, rightShoulder)
-        val pelvis = midpoint(leftHip, rightHip)
-
-        val spineVector = Vec3(c7.x - pelvis.x, c7.y - pelvis.y, c7.z - pelvis.z)
-        val vertical = Vec3(0.0, -1.0, 0.0)
-        val trunkAngle = angleBetween(spineVector, vertical)
-
-        val leftEar = landmarks[7]
-        val rightEar = landmarks[8]
-        val ear = if (leftEar.visibility >= rightEar.visibility) leftEar else rightEar
-
-        val cva = if (ear.visibility >= MIN_VISIBILITY) {
-            val earRelY = ear.y - c7.y
-            val earRelZ = ear.z - c7.z
-            Math.toDegrees(atan2(-earRelY, -earRelZ))
-        } else null
-
-        val state = when {
-            trunkAngle > TRUNK_INCLINATION_THRESHOLD_DEG -> PostureState.BAD_HUNCHBACK
-            cva != null && cva < CVA_THRESHOLD_DEG -> PostureState.BAD_FORWARD_HEAD
-            else -> PostureState.GOOD
-        }
-
-        return Analysis3dResult(state, cva, trunkAngle)
-    }
 
     fun analyzeWithDiagnosis(
         landmarks2d: List<Landmark3D>,
