@@ -5,62 +5,70 @@
 </p>
 
 <p align="center">
-  Turn an old Android phone into a dedicated posture coach that watches your sitting habits and alerts you when you slouch, tilt, or hunch — all processing happens locally, no internet required.
+  Turn an old Android phone into a dedicated posture coach that watches your sitting habits and alerts you when you slouch, tilt, hunch, or crane your neck — all processing happens locally, no internet required.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Android-green" alt="Platform" />
   <img src="https://img.shields.io/badge/minSDK-26-orange" alt="Min SDK" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
-  <img src="https://img.shields.io/badge/MediaPipe-Pose_Landmarker-red" alt="MediaPipe" />
+  <img src="https://img.shields.io/badge/MediaPipe-Pose_Full-red" alt="MediaPipe" />
 </p>
 
 ---
 
 ## Features
 
-- **Real-time pose detection** — MediaPipe Pose Landmarker (Lite) identifies 33 body keypoints at camera framerate
-- **Posture analysis** — Detects head tilt (left/right), shoulder asymmetry, and slouching
-- **Voice alerts** — Chinese TTS reminds you to sit up straight when bad posture is sustained
-- **Eco mode** — Black screen mode saves battery while monitoring continues in the background
+- **3D biomechanical analysis** — Uses MediaPipe World Landmarks to compute CVA (Craniovertebral Angle) and Trunk Inclination for clinical-grade forward head and hunchback detection
+- **2D + 3D fusion** — Head tilt and shoulder asymmetry from normalized 2D landmarks; forward head and hunchback from 3D world coordinates
+- **User calibration** — 3-second baseline capture personalizes thresholds to your body and seating position
+- **Skeleton overlay** — Debug mode shows detected keypoints and bone connections on the live camera preview
+- **Voice alerts** — Chinese TTS reminds you to correct posture (5-second cooldown to avoid spam)
+- **Eco mode** — Black screen with 75% frame skipping for extended battery life
 - **100% offline** — No internet, no accounts, no data leaves your device
 
 ## How It Works
 
 ```
-Front Camera → CameraX ImageAnalysis → MediaPipe Pose Landmarker
+Front Camera → CameraX ImageAnalysis → MediaPipe Pose Landmarker (Full)
                                                ↓
-                                       33 Keypoints
+                                    33 Keypoints (2D + 3D World)
                                                ↓
-                                      PostureLogic Analysis
-                                     (head tilt + shoulder level)
+                                      1 Euro Filter (jitter-free)
                                                ↓
-                                    PostureState Enum
-                                  (GOOD / TILT / SLOUCH)
+                                     Calibrated Analysis
+                                     ┌─────────────────┐
+                                     │ 3D: CVA < 48°?  │ → Forward Head
+                                     │ 3D: Trunk > 20°? │ → Hunchback
+                                     │ 2D: Ear Y diff?  │ → Head Tilt
+                                     │ 2D: Shoulder Y?  │ → Slouch
+                                     └─────────────────┘
                                                ↓
-                                    TTS Voice Alert (if bad)
+                                     State Machine (debounce)
+                                               ↓
+                                      TTS Voice Alert (if bad)
 ```
 
-The app uses a subset of MediaPipe's 33 landmarks:
+### Detection Types
 
-| Keypoint      | Index | Used For            |
-|---------------|-------|---------------------|
-| Nose          | 0     | Reference point     |
-| Left Ear      | 7     | Head tilt detection |
-| Right Ear     | 8     | Head tilt detection |
-| Left Shoulder | 11    | Shoulder symmetry   |
-| Right Shoulder| 12    | Shoulder symmetry   |
+| Posture State | Detection Method | Clinical Metric |
+|---------------|-----------------|-----------------|
+| Head Tilt Left/Right | 2D ear Y difference | Ear deviation from baseline |
+| Shoulder Asymmetry | 2D shoulder Y difference | Shoulder level deviation |
+| Forward Head | 3D CVA (Craniovertebral Angle) | CVA < 48° (or deviation > 10° from baseline) |
+| Hunchback | 3D Trunk Inclination Angle | Trunk > 20° from vertical (or deviation > 10°) |
 
 ## Tech Stack
 
-| Component         | Technology                          |
-|-------------------|-------------------------------------|
-| Language          | Kotlin                              |
-| UI Framework      | Jetpack Compose + Material3         |
-| Camera            | CameraX (Preview + ImageAnalysis)   |
-| Pose Detection    | Google MediaPipe Pose Landmarker    |
-| Voice Output      | Android TextToSpeech                |
-| Build System      | Gradle Kotlin DSL                   |
+| Component | Technology |
+|-----------|------------|
+| Language | Kotlin |
+| UI Framework | Jetpack Compose + Material3 |
+| Camera | CameraX (Preview + ImageAnalysis) |
+| Pose Detection | Google MediaPipe Pose Landmarker (Full model, GPU/CPU fallback) |
+| Smoothing | 1 Euro Filter (adaptive jitter reduction) |
+| Voice Output | Android TextToSpeech (Chinese) |
+| Build System | Gradle Kotlin DSL |
 
 ## Getting Started
 
@@ -79,6 +87,9 @@ cd posture_detect
 
 # Build and install on connected device
 ./gradlew installDebug
+
+# Grant camera permission (first time only)
+adb shell pm grant com.example.postureguard android.permission.CAMERA
 ```
 
 Or open the project in Android Studio, sync Gradle, and hit **Run**.
@@ -88,65 +99,73 @@ Or open the project in Android Studio, sync Gradle, and hit **Run**.
 1. Grant camera permission when prompted
 2. Prop the phone upright in front of you (portrait orientation)
 3. Ensure good lighting for best detection accuracy
-4. The status indicator at the bottom shows your current posture state
+4. Tap **校准** (Calibrate) while sitting with good posture to personalize thresholds
+5. The status indicator shows your current posture state in real time
 
 ## Project Structure
 
 ```
-posture_detect/
-├── app/
-│   ├── build.gradle.kts              # App-level dependencies and config
-│   └── src/main/
-│       ├── AndroidManifest.xml
-│       ├── assets/
-│       │   └── pose_landmarker_lite.task   # MediaPipe model (~5.8 MB)
-│       ├── java/com/example/postureguard/
-│       │   ├── MainActivity.kt       # Entry point, camera UI, TTS
-│       │   ├── PoseDetector.kt       # MediaPipe wrapper
-│       │   ├── PostureLogic.kt       # Posture classification rules
-│       │   └── ui/theme/Theme.kt     # Material3 theme
-│       └── res/
-├── build.gradle.kts                  # Root build config
-├── settings.gradle.kts
-├── CLAUDE.md                         # AI development context
-└── README.md
+app/src/main/java/com/example/postureguard/
+├── MainActivity.kt        # Activity, TTS, camera UI, calibration flow
+├── PoseDetector.kt        # MediaPipe PoseLandmarker (LIVE_STREAM, GPU/CPU)
+├── PostureLogic.kt        # Biomechanical analysis, calibration, state machine
+├── OneEuroFilter.kt       # Adaptive temporal smoothing for landmarks
+├── PostureDiagnosis.kt    # Diagnosis data class
+└── ui/theme/Theme.kt      # Material3 theme
+
+app/src/main/assets/
+└── pose_landmarker_full.task   # MediaPipe Full model (~9 MB)
 ```
 
 ## Configuration
 
 ### Detection Thresholds
 
-Thresholds are defined in `PostureLogic.kt` and can be tuned:
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `TILT_THRESHOLD` | 0.05 | Ear Y-difference for head tilt (absolute mode) |
+| `SHOULDER_LEVEL_THRESHOLD` | 0.04 | Shoulder Y-difference for slouch (absolute mode) |
+| `CVA_THRESHOLD_DEG` | 48° | Craniovertebral Angle below this = forward head |
+| `TRUNK_INCLINATION_THRESHOLD_DEG` | 20° | Trunk angle above this = hunchback |
+| `TILT_DEVIATION` | 0.03 | Ear deviation from calibrated baseline |
+| `SHOULDER_DEVIATION` | 0.03 | Shoulder deviation from calibrated baseline |
+| `CVA_DEVIATION_DEG` | 10° | CVA deviation from calibrated baseline |
+| `TRUNK_DEVIATION_DEG` | 10° | Trunk angle deviation from calibrated baseline |
 
-| Parameter              | Default | Description                         |
-|------------------------|---------|-------------------------------------|
-| `TILT_THRESHOLD`       | 0.05    | Ear Y-difference for head tilt (5%) |
-| `SHOULDER_LEVEL_THRESHOLD` | 0.04 | Shoulder Y-difference for slouch (4%) |
+### State Machine
 
-### Alert Cooldown
+The app uses a debounce mechanism to prevent rapid state flickering:
+- **3 consecutive bad frames** required before triggering an alert
+- **5 consecutive good frames** required before clearing an alert
 
-TTS alerts have a 5-second cooldown to prevent repetitive notifications. This is set in `MainActivity.kt`.
+### Eco Mode
+
+Reduces processing load by skipping 3 out of 4 frames, effectively lowering analysis from ~16 FPS to ~4 FPS while maintaining detection reliability.
 
 ## Roadmap
 
-- [ ] Forward head (turtle neck) detection
-- [ ] User calibration flow for personalized baselines
-- [ ] Spine angle analysis using hip and shoulder keypoints
-- [ ] Skeleton overlay visualization
+- [x] Forward head (turtle neck) detection via CVA
+- [x] Hunchback detection via trunk inclination
+- [x] User calibration flow for personalized baselines
+- [x] Skeleton overlay visualization
+- [x] 3D biomechanical analysis with World Landmarks
+- [x] State machine debounce for stable detection
 - [ ] Session tracking with statistics and history
 - [ ] MVVM architecture with ViewModel + Room database
 - [ ] Haptic feedback option
-- [ ] Adjustable sensitivity levels
 - [ ] Background service for continuous monitoring
+- [ ] Wear OS companion app
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
 | App crashes on start | Grant camera permission in Settings → Apps → PostureGuard |
-| No pose detection | Ensure good front-facing lighting; Lite model trades accuracy for speed |
+| 3D shows OFF | Ensure good front-facing lighting; hips/shoulders need visibility > 0.3 |
 | TTS is silent | Check that Google TTS engine is installed and volume is up |
-| High battery drain | Enable Eco mode (black screen) to reduce display power consumption |
+| High battery drain | Enable Eco mode to reduce display and processing load |
+| Frequent false alerts | Run calibration while sitting with good posture |
+| Detection too sensitive | Increase deviation thresholds in `PostureLogic.kt` |
 
 ## Contributing
 
