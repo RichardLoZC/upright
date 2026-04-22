@@ -25,10 +25,13 @@
 
 - **3D biomechanical analysis** — Uses MediaPipe World Landmarks to compute CVA (Craniovertebral Angle) and Trunk Inclination for clinical-grade forward head and hunchback detection
 - **2D + 3D fusion** — Head tilt and shoulder asymmetry from normalized 2D landmarks; forward head and hunchback from 3D world coordinates
-- **User calibration** — 3-second baseline capture personalizes thresholds to your body and seating position
+- **User calibration** — 3-second baseline capture personalizes thresholds to your body and seating position, persisted across sessions
 - **Skeleton overlay** — Debug mode shows detected keypoints and bone connections on the live camera preview
-- **Voice alerts** — Chinese TTS reminds you to correct posture (5-second cooldown to avoid spam)
-- **Eco mode** — Black screen with 75% frame skipping for extended battery life
+- **Voice alerts** — Chinese TTS with varied messages reminds you to correct posture (5-second cooldown to avoid spam)
+- **Haptic feedback** — Vibration on posture state changes for immediate tactile alerts
+- **Session statistics** — Real-time tracking of good/bad posture duration with percentage score
+- **Animated posture indicator** — Color-coded ring with pulse animation for posture status at a glance
+- **Eco mode** — Dark screen with 75% frame skipping for extended battery life
 - **100% offline** — No internet, no accounts, no data leaves your device
 
 ## How It Works
@@ -67,11 +70,13 @@ Front Camera → CameraX ImageAnalysis → MediaPipe Pose Landmarker (Full)
 | Component | Technology |
 |-----------|------------|
 | Language | Kotlin |
-| UI Framework | Jetpack Compose + Material3 |
+| UI Framework | Jetpack Compose + Material3 + Material Icons |
 | Camera | CameraX (Preview + ImageAnalysis) |
 | Pose Detection | Google MediaPipe Pose Landmarker (Full model, GPU/CPU fallback) |
 | Smoothing | 1 Euro Filter (adaptive jitter reduction) |
-| Voice Output | Android TextToSpeech (Chinese) |
+| Voice Output | Android TextToSpeech (Chinese) with varied messages |
+| Haptic | Android Vibrator (state-change alerts) |
+| Theme | Custom dark theme with branded PostureGuard color palette |
 | Build System | Gradle Kotlin DSL |
 
 ## Getting Started
@@ -110,12 +115,16 @@ Or open the project in Android Studio, sync Gradle, and hit **Run**.
 
 ```
 app/src/main/java/com/example/postureguard/
-├── MainActivity.kt        # Activity, TTS, camera UI, calibration flow
-├── PoseDetector.kt        # MediaPipe PoseLandmarker (LIVE_STREAM, GPU/CPU)
-├── PostureLogic.kt        # Biomechanical analysis, calibration, state machine
-├── OneEuroFilter.kt       # Adaptive temporal smoothing for landmarks
-├── PostureDiagnosis.kt    # Diagnosis data class
-└── ui/theme/Theme.kt      # Material3 theme
+├── MainActivity.kt            # Compose UI with animated posture ring, skeleton overlay, session stats
+├── PostureGuardViewModel.kt   # ViewModel: TTS, calibration, state machine, haptics, session tracking
+├── PoseDetector.kt            # MediaPipe PoseLandmarker (LIVE_STREAM, GPU/CPU)
+├── PostureLogic.kt            # Biomechanical analysis, calibration, state machine
+├── OneEuroFilter.kt           # Adaptive temporal smoothing for landmarks
+├── SpatialRefinement.kt       # Bone-length optimizer, affine rotation normalizer
+├── CalibrationStore.kt        # DataStore persistence for calibration profiles
+├── PostureMonitorService.kt   # Foreground service for background monitoring
+├── PostureDiagnosis.kt        # Diagnosis data class
+└── ui/theme/Theme.kt          # Material3 theme
 
 app/src/main/assets/
 └── pose_landmarker_full.task   # MediaPipe Full model (~9 MB)
@@ -154,10 +163,14 @@ Reduces processing load by skipping 3 out of 4 frames, effectively lowering anal
 - [x] Skeleton overlay visualization
 - [x] 3D biomechanical analysis with World Landmarks
 - [x] State machine debounce for stable detection
-- [ ] Session tracking with statistics and history
-- [ ] MVVM architecture with ViewModel + Room database
-- [ ] Haptic feedback option
-- [ ] Background service for continuous monitoring
+- [x] MVVM architecture with ViewModel + DataStore
+- [x] Background service for continuous monitoring
+- [x] Physics-informed bone-length optimization
+- [x] Affine coordinate normalization for camera tilt
+- [x] Calibration persistence across sessions
+- [x] Unit tests for core logic
+- [x] Session tracking with statistics and history
+- [x] Haptic feedback option
 - [ ] Wear OS companion app
 
 ## Troubleshooting
@@ -178,6 +191,30 @@ Reduces processing load by skipping 3 out of 4 frames, effectively lowering anal
 3. Commit your changes (`git commit -m 'Add my feature'`)
 4. Push to the branch (`git push origin feature/my-feature`)
 5. Open a Pull Request
+
+## Acknowledgments
+
+### Algorithms & Methods
+
+This project implements biomechanical posture analysis methods from the following research and frameworks:
+
+- **Google MediaPipe Pose Landmarker** — BlazePose architecture providing 33-keypoint 3D skeleton estimation with World Landmarks. The "Full" complexity model is used for its balance of speed and Z-axis depth accuracy.
+  - Bazarevsky et al., "BlazePose: On-device Real-time Body Pose Tracking", CVPR Workshop on Computer Vision for Augmented and Virtual Reality, 2020
+- **Craniovertebral Angle (CVA)** — Clinical biomechanical metric for quantifying Forward Head Posture. CVA is defined as the angle between a horizontal line through C7 and the line from C7 to the tragus of the ear. A CVA below 50° is clinically indicative of forward head translation.
+  - Ref: Silva et al., "Craniovertebral angle and forward head posture: a systematic review", *Fisioterapia em Movimento*, 2024
+- **Trunk Inclination Angle** — 3D vector angle between the spine (pelvis→C7) and the vertical axis, used to quantify thoracic kyphosis and slouching.
+- **1 Euro Filter** — Adaptive low-pass filter for real-time signal processing that eliminates jitter during static poses while maintaining zero-lag response during movement.
+  - Casiez et al., "1€ Filter: A Simple Speed-based Low-pass Filter for Noisy Input in Interactive Systems", ACM CHI, 2012
+- **Physics-Informed Bone-Length Optimization** — Post-processing pipeline that enforces skeletal rigidity constraints to resolve monocular depth ambiguities. Calibrated bone ratios penalize Z-axis stretching across frames, reducing 3D MPJPE by ~10%.
+- **Affine Coordinate Normalization** — Camera-tilt compensation via rotation matrix derived from user calibration, establishing a personalized vertical reference.
+
+The algorithm methodology is further detailed in [`algorithm/Advanced-Methodologies-for-On-Device-3D-Human-Posture-Estimation-and-Biomechanic.md`](algorithm/Advanced-Methodologies-for-On-Device-3D-Human-Posture-Estimation-and-Biomechanic.md).
+
+### Open Source Libraries
+
+- [Google MediaPipe](https://developers.google.com/mediapipe) — On-device ML pose estimation
+- [Android CameraX](https://developer.android.com/training/camerax) — Camera API abstraction
+- [Jetpack Compose](https://developer.android.com/jetpack/compose) — Declarative UI toolkit
 
 ## License
 

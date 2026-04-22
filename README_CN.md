@@ -25,10 +25,13 @@
 
 - **3D 生物力学分析** — 利用 MediaPipe World Landmarks 计算 CVA（颅椎角）和躯干倾角，实现临床级的探颈和驼背检测
 - **2D + 3D 融合检测** — 2D 归一化坐标检测歪头和肩膀不对称；3D 世界坐标检测探颈和驼背
-- **用户校准** — 3 秒采集个人基准姿势，个性化设定检测阈值
+- **用户校准** — 3 秒采集个人基准姿势，个性化设定检测阈值，校准数据跨会话持久保存
 - **骨骼叠加** — 调试模式下在摄像头画面上实时显示检测到的关节点和骨骼连线
-- **语音提醒** — 中文 TTS 语音提醒纠正坐姿（5 秒冷却，避免频繁打扰）
-- **省电模式** — 黑屏 + 跳过 75% 帧率，大幅延长续航
+- **语音提醒** — 中文 TTS 多样化语音提醒纠正坐姿（5 秒冷却，避免频繁打扰）
+- **振动反馈** — 姿势状态变化时振动提醒，即时触觉感知
+- **会话统计** — 实时追踪良好/不良坐姿时长，显示百分比得分
+- **动画姿态指示器** — 带脉冲动画的彩色圆环，一目了然显示坐姿状态
+- **省电模式** — 暗屏 + 跳过 75% 帧率，大幅延长续航
 - **完全离线** — 无需网络、无需注册、数据不离开设备
 
 ## 工作原理
@@ -67,11 +70,13 @@
 | 组件 | 技术 |
 |------|------|
 | 语言 | Kotlin |
-| UI 框架 | Jetpack Compose + Material3 |
+| UI 框架 | Jetpack Compose + Material3 + Material Icons |
 | 相机 | CameraX (Preview + ImageAnalysis) |
 | 姿态检测 | Google MediaPipe Pose Landmarker (Full 模型, GPU/CPU 自动切换) |
 | 信号平滑 | 1 Euro Filter (自适应去抖) |
-| 语音输出 | Android TextToSpeech (中文) |
+| 语音输出 | Android TextToSpeech (中文，多样化消息) |
+| 振动 | Android Vibrator (状态变化提醒) |
+| 主题 | 自定义暗色主题，PostureGuard 品牌配色 |
 | 构建系统 | Gradle Kotlin DSL |
 
 ## 快速开始
@@ -110,12 +115,16 @@ adb shell pm grant com.example.postureguard android.permission.CAMERA
 
 ```
 app/src/main/java/com/example/postureguard/
-├── MainActivity.kt        # 主界面、TTS、相机 UI、校准流程
-├── PoseDetector.kt        # MediaPipe 姿态检测封装 (实时流, GPU/CPU)
-├── PostureLogic.kt        # 生物力学分析、校准、状态机
-├── OneEuroFilter.kt       # 关键点自适应时序平滑滤波
-├── PostureDiagnosis.kt    # 诊断结果数据类
-└── ui/theme/Theme.kl      # Material3 主题
+├── MainActivity.kt            # Compose UI，含动画姿态环、骨骼叠加、会话统计
+├── PostureGuardViewModel.kt   # ViewModel: TTS、校准、状态机、振动、会话追踪
+├── PoseDetector.kt            # MediaPipe 姿态检测封装 (实时流, GPU/CPU)
+├── PostureLogic.kt            # 生物力学分析、校准、状态机
+├── OneEuroFilter.kt           # 关键点自适应时序平滑滤波
+├── SpatialRefinement.kt       # 骨长约束优化、仿射旋转变换
+├── CalibrationStore.kt        # DataStore 校准数据持久化
+├── PostureMonitorService.kt   # 前台服务（后台持续监测）
+├── PostureDiagnosis.kt        # 诊断结果数据类
+└── ui/theme/Theme.kl          # Material3 主题
 
 app/src/main/assets/
 └── pose_landmarker_full.task   # MediaPipe Full 模型 (~9 MB)
@@ -154,10 +163,14 @@ app/src/main/assets/
 - [x] 骨骼叠加可视化
 - [x] 3D 生物力学分析（World Landmarks）
 - [x] 状态机防抖
-- [ ] 会话记录与历史统计
-- [ ] MVVM 架构（ViewModel + Room）
-- [ ] 振动反馈
-- [ ] 后台保活服务
+- [x] MVVM 架构（ViewModel + DataStore）
+- [x] 后台保活前台服务
+- [x] 物理约束骨长优化
+- [x] 仿射坐标归一化（相机倾斜补偿）
+- [x] 校准数据跨会话持久化
+- [x] 核心逻辑单元测试
+- [x] 会话记录与历史统计
+- [x] 振动反馈
 - [ ] Wear OS 配套应用
 
 ## 常见问题
@@ -178,6 +191,30 @@ app/src/main/assets/
 3. 提交更改 (`git commit -m 'Add my feature'`)
 4. 推送分支 (`git push origin feature/my-feature`)
 5. 发起 Pull Request
+
+## 鸣谢
+
+### 算法与方法论
+
+本项目实现了以下研究和框架中的生物力学姿势分析方法：
+
+- **Google MediaPipe Pose Landmarker** — BlazePose 架构，提供 33 关键点的 3D 骨骼估计及世界坐标。使用 Full 复杂度模型，兼顾速度与 Z 轴深度精度。
+  - Bazarevsky et al., "BlazePose: On-device Real-time Body Pose Tracking", CVPR Workshop on Computer Vision for Augmented and Virtual Reality, 2020
+- **颅椎角 (Craniovertebral Angle, CVA)** — 量化前倾头姿势的临床生物力学指标。CVA 定义为通过 C7 的水平线与 C7 到耳屏连线的夹角。CVA 低于 50° 临床提示头部前移。
+  - Ref: Silva et al., "Craniovertebral angle and forward head posture: a systematic review", *Fisioterapia em Movimento*, 2024
+- **躯干倾角 (Trunk Inclination Angle)** — 脊柱向量（骨盆→C7）与垂直轴的 3D 夹角，用于量化胸椎后凸和驼背。
+- **1 Euro Filter** — 自适应低通滤波器，在静态姿势时消除抖动，在姿势变化时零延迟响应。
+  - Casiez et al., "1€ Filter: A Simple Speed-based Low-pass Filter for Noisy Input in Interactive Systems", ACM CHI, 2012
+- **物理约束骨长优化** — 后处理管线，强制骨骼刚性约束以消除单目深度模糊。校准后的骨骼比例惩罚帧间 Z 轴拉伸，降低 3D MPJPE 约 10%。
+- **仿射坐标归一化** — 通过用户校准导出的旋转矩阵补偿相机倾斜，建立个性化垂直参考。
+
+算法方法论的详细说明见 [`algorithm/Advanced-Methodologies-for-On-Device-3D-Human-Posture-Estimation-and-Biomechanic.md`](algorithm/Advanced-Methodologies-for-On-Device-3D-Human-Posture-Estimation-and-Biomechanic.md)。
+
+### 开源库
+
+- [Google MediaPipe](https://developers.google.com/mediapipe) — 端侧 ML 姿态估计
+- [Android CameraX](https://developer.android.com/training/camerax) — 相机 API 抽象层
+- [Jetpack Compose](https://developer.android.com/jetpack/compose) — 声明式 UI 工具包
 
 ## 许可证
 
