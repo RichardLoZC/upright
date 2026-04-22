@@ -162,6 +162,7 @@ fun CameraScreen(
     var showDebug by remember { mutableStateOf(true) }
     var diagnosis by remember { mutableStateOf<PostureDiagnosis?>(null) }
     var skeletonLandmarks by remember { mutableStateOf<List<Landmark3D>?>(null) }
+    val stateMachine = remember { PostureStateMachine() }
 
     // Bind camera once, not on every recomposition
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
@@ -196,10 +197,11 @@ fun CameraScreen(
                                 }
                             }
                             processImage(imageProxy, poseDetector, smoother) { diag, landmarks ->
-                                currentPosture = diag.state
-                                diagnosis = diag
+                                val debounced = stateMachine.update(diag.state)
+                                currentPosture = debounced
+                                diagnosis = diag.copy(state = debounced)
                                 skeletonLandmarks = landmarks
-                                onPostureDetected(diag.state)
+                                onPostureDetected(debounced)
                             }
                         }
 

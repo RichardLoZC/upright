@@ -187,3 +187,36 @@ object PostureLogic {
         return Math.toDegrees(kotlin.math.acos(cosAngle))
     }
 }
+
+class PostureStateMachine(
+    private val badConfirmFrames: Int = 3,
+    private val goodConfirmFrames: Int = 5
+) {
+    private var currentState = PostureState.NO_PERSON
+    private var pendingState: PostureState? = null
+    private var consecutiveFrames = 0
+
+    fun update(rawState: PostureState): PostureState {
+        if (rawState == pendingState) {
+            consecutiveFrames++
+        } else {
+            pendingState = rawState
+            consecutiveFrames = 1
+        }
+
+        val isCurrentlyOk = currentState == PostureState.GOOD || currentState == PostureState.NO_PERSON
+        val threshold = when {
+            isCurrentlyOk && rawState != PostureState.GOOD && rawState != PostureState.NO_PERSON -> badConfirmFrames
+            !isCurrentlyOk && (rawState == PostureState.GOOD || rawState == PostureState.NO_PERSON) -> goodConfirmFrames
+            else -> 1
+        }
+
+        if (consecutiveFrames >= threshold) {
+            currentState = rawState
+            pendingState = rawState
+            consecutiveFrames = 0
+        }
+
+        return currentState
+    }
+}
