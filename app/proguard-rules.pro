@@ -29,3 +29,8 @@
 -keep class com.example.postureguard.SettingsProfile { *; }
 -keep class com.example.postureguard.SensitivityLevel { *; }
 -keep class com.example.postureguard.AlertLanguage { *; }
+
+# Session data classes
+-keep class com.example.postureguard.SessionEntity { *; }
+-keep class com.example.postureguard.DailySummary { *; }
+-keep class com.example.postureguard.Screen { *; }

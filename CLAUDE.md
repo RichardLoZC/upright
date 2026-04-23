@@ -9,14 +9,14 @@ PostureGuard is a native Android app that uses the front-facing camera to monito
 - **Language**: Kotlin
 - **UI**: Jetpack Compose + Material3 + Material Icons Extended
 - **Theme**: Custom dark theme with branded PostureGuard color palette
-- **Architecture**: ViewModel + StateFlow (unidirectional data flow)
+- **Architecture**: ViewModel + StateFlow (unidirectional data flow), screen-based navigation (no compose-navigation)
 - **Camera**: CameraX (ImageAnalysis + Preview)
 - **Pose Detection**: Google MediaPipe Pose Landmarker (Full model, GPU with CPU fallback)
 - **Smoothing**: 1 Euro Filter for jitter-free landmark tracking
 - **Spatial Refinement**: Bone-length constancy optimization + affine coordinate normalization
-- **Persistence**: DataStore Preferences (calibration profiles)
+- **Persistence**: DataStore Preferences (calibration profiles + user settings), Room (session history)
 - **Background**: Foreground Service with notification for continuous monitoring
-- **Alerts**: Android TextToSpeech (Chinese) with varied messages + haptic vibration feedback
+- **Alerts**: Android TextToSpeech (Chinese/English) with varied messages + haptic vibration feedback
 - **Min SDK**: 26 (Android 8.0)
 - **Target SDK**: 34
 
@@ -25,19 +25,27 @@ PostureGuard is a native Android app that uses the front-facing camera to monito
 ```
 app/src/main/java/com/example/postureguard/
 ├── MainActivity.kt            # Activity, Compose UI with animated posture ring, skeleton overlay, session stats
-├── PostureGuardViewModel.kt   # ViewModel: TTS, calibration, state machine, haptics, session tracking, throttled UI
+├── PostureGuardViewModel.kt   # ViewModel: TTS, calibration, state machine, haptics, session tracking, throttled UI, pause, settings, navigation
 ├── PoseDetector.kt            # MediaPipe PoseLandmarker wrapper (LIVE_STREAM, GPU/CPU fallback)
-├── PostureLogic.kt            # Biomechanical analysis (CVA, trunk angle, head tilt, shoulder asymmetry)
+├── PostureLogic.kt            # Biomechanical analysis (CVA, trunk angle, head tilt, shoulder asymmetry) with sensitivity multiplier
 │                              # CalibrationProfile, PostureStateMachine, calibrated analysis
 ├── OneEuroFilter.kt           # Adaptive temporal smoothing for landmark coordinates
 ├── SpatialRefinement.kt       # Bone-length constancy optimizer, affine rotation normalizer
 ├── CalibrationStore.kt        # DataStore persistence for calibration profiles (including bone lengths + rotation matrix)
+├── SettingsStore.kt           # DataStore persistence for user settings (alert interval, sensitivity, language, etc.)
+├── AppDatabase.kt             # Room database singleton for session history
+├── SessionDao.kt              # Room DAO for session queries (daily, weekly, streak)
+├── SessionEntity.kt           # Room entity for posture session data
+├── OnboardingScreen.kt        # 3-page onboarding (purpose, setup tips, get started)
+├── SettingsScreen.kt          # Settings page (alerts, sensitivity, language, calibration management)
+├── HistoryScreen.kt           # History page (weekly chart, daily goal, streak, session list)
+├── PostureGuidance.kt         # Animated directional arrows overlay for posture correction
 ├── PostureMonitorService.kt   # Foreground service for background monitoring
 ├── PostureDiagnosis.kt        # Data class for analysis results
 └── ui/theme/Theme.kt          # Compose Material3 theme
 
 app/src/test/java/com/example/postureguard/
-└── PostureLogicTest.kt        # Unit tests (2D/3D analysis, state machine, filter, spatial refinement)
+└── PostureLogicTest.kt        # Unit tests (2D/3D analysis, state machine, filter, spatial refinement, sensitivity)
 ```
 
 ## Build & Run
@@ -56,11 +64,11 @@ Requires a physical device with a front camera. Camera permission is requested a
 ## Architecture Notes
 
 - **ViewModel pattern**: All state flows through `PostureGuardViewModel` → `UiState` StateFlow → Compose UI
+- **Screen navigation**: `Screen` enum (ONBOARDING, MAIN, SETTINGS, HISTORY) in UiState, rendered via `when` expression in `PostureGuardApp`
+- **Onboarding**: 3-page flow shown on first launch, persisted via SettingsStore
 - PoseDetector wraps MediaPipe in LIVE_STREAM mode with async result callbacks
 - FrameProcessor handles bitmap rotation, FPS tracking, and token-based async result matching
-- PostureLogic uses both 2D (normalized) and 3D (World Landmarks) analysis:
-  - **2D**: head tilt (ear Y diff), shoulder asymmetry
-  - **3D**: CVA (Craniovertebral Angle) for forward head, Trunk Inclination for hunchback
+- PostureLogic uses both 2D (normalized) and 3D (World Landmarks) analysis with configurable sensitivity multiplier
 - **Spatial Refinement Pipeline** (applied before analysis):
   1. Affine rotation normalizes camera tilt using calibration-derived rotation matrix
   2. Bone-length optimizer corrects Z-axis drift by enforcing calibrated skeletal proportions
@@ -68,17 +76,21 @@ Requires a physical device with a front camera. Camera permission is requested a
 - PostureStateMachine debounces state changes (3 frames bad→alert, 5 frames good→clear)
 - 1 Euro Filter adapts smoothing based on movement velocity
 - User calibration captures personalized baseline including bone ratios and rotation matrix
-- Calibration profiles persisted via DataStore including bone lengths and rotation matrix (survives app restart)
+- Calibration aborts if person leaves during countdown
+- **Settings**: Alert interval (5/10/30/60s), sound/vibration toggles, sensitivity (LOW/MEDIUM/HIGH), language (ZH/EN), auto-resume timer, calibration management
+- **Pause/Resume**: Auto-resume countdown, skips frame processing and stats when paused
+- **Posture guidance**: Animated directional arrows on camera preview for each bad posture type
+- **History**: Room database with daily sessions, weekly bar chart, daily goal (80%), streak counter
+- Session saved on Activity ON_PAUSE and ViewModel onCleared with double-save prevention
 - Foreground service enables continuous monitoring when app is minimized
-- TTS alerts have a 5-second cooldown with varied messages to reduce annoyance
+- Notification updates with current posture state in real time
+- TTS alerts support Chinese and English with configurable interval
 - Haptic vibration (150ms) on posture state change to bad
 - Eco mode skips 3/4 frames and hides preview for battery saving
 - UI updates throttled to ~30fps to reduce unnecessary recompositions
-- Session statistics track good/bad posture duration with percentage display
-- Animated posture ring indicator with pulse effect on bad posture
-- Custom dark theme with PostureGuard brand colors (green/red/blue/gray)
-- Gradient overlays on top and bottom for better readability over camera feed
-- Skeleton overlay shows detected pose landmarks when debug mode is on
+- NO_PERSON timeout (2 min) suggests pausing monitoring
+- Thread-safe calibration sample collection (CopyOnWriteArrayList)
+- Custom dark theme with PostureGuard brand colors (green/red/blue/gray/orange)
 
 ## Detection Thresholds
 
@@ -94,9 +106,15 @@ Requires a physical device with a front camera. Camera permission is requested a
 - CVA deviation > 10° from baseline
 - Trunk angle deviation > 10° from baseline
 
+### Sensitivity Levels
+- LOW: multiplier 1.5 (harder to trigger, fewer alerts)
+- MEDIUM: multiplier 1.0 (default)
+- HIGH: multiplier 0.7 (easier to trigger, more alerts)
+
 ## Key Files
 
 - `app/src/main/assets/pose_landmarker_full.task` — MediaPipe Full model (~9 MB)
-- `app/build.gradle.kts` — dependencies and build config
-- `app/proguard-rules.pro` — ProGuard keep rules for MediaPipe and data classes
+- `app/build.gradle.kts` — dependencies and build config (includes Room, kotlin-kapt)
+- `app/proguard-rules.pro` — ProGuard keep rules for MediaPipe, data classes, Room
 - `app/src/main/AndroidManifest.xml` — permissions (CAMERA, WAKE_LOCK, FOREGROUND_SERVICE), portrait lock, foreground service
+- `app/src/main/res/drawable/ic_notification.xml` — Custom shield notification icon

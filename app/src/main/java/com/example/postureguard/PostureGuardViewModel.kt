@@ -441,22 +441,27 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
 
         val isBad = state != PostureState.GOOD && state != PostureState.NO_PERSON
         if (isBad) {
-            vibrator?.let {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    it.vibrate(VibrationEffect.createOneShot(150, 100))
-                } else {
-                    @Suppress("DEPRECATION")
-                    it.vibrate(150)
+            try {
+                vibrator?.let {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        it.vibrate(VibrationEffect.createOneShot(150, 100))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        it.vibrate(150)
+                    }
                 }
+            } catch (_: Exception) {
+                // Some devices don't support vibration
             }
         }
     }
 
     private fun speakAlert(state: PostureState) {
         val now = System.currentTimeMillis()
-        if (now - lastAlertTime < _uiState.value.settings.alertIntervalSeconds * 1000L) return
+        val interval = _uiState.value.settings.alertIntervalSeconds * 1000L
+        if (now - lastAlertTime < interval) return
 
-        if (isTtsReady) {
+        if (isTtsReady && tts != null) {
             val useEn = _uiState.value.settings.alertLanguage == AlertLanguage.EN
             val message = when (state) {
                 PostureState.BAD_TILT_LEFT -> if (useEn) tiltLeftMessagesEn.random() else tiltLeftMessagesZh.random()
@@ -481,18 +486,22 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
         if (state.sessionGoodDuration == 0L && state.sessionBadDuration == 0L) return
         sessionSaved = true
         viewModelScope.launch {
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            val date = sdf.format(Date(state.sessionStartTime))
-            db.sessionDao().insert(
-                SessionEntity(
-                    date = date,
-                    startTime = state.sessionStartTime,
-                    endTime = System.currentTimeMillis(),
-                    goodDurationSeconds = state.sessionGoodDuration,
-                    badDurationSeconds = state.sessionBadDuration,
-                    calibrationUsed = state.calibration != null
+            try {
+                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                val date = sdf.format(Date(state.sessionStartTime))
+                db.sessionDao().insert(
+                    SessionEntity(
+                        date = date,
+                        startTime = state.sessionStartTime,
+                        endTime = System.currentTimeMillis(),
+                        goodDurationSeconds = state.sessionGoodDuration,
+                        badDurationSeconds = state.sessionBadDuration,
+                        calibrationUsed = state.calibration != null
+                    )
                 )
-            )
+            } catch (e: Exception) {
+                Log.e("PostureGuard", "Failed to save session", e)
+            }
         }
     }
 
