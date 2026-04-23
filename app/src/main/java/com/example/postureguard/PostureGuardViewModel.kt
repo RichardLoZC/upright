@@ -470,9 +470,13 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    private var sessionSaved = false
+
     fun saveCurrentSession() {
+        if (sessionSaved) return
         val state = _uiState.value
         if (state.sessionGoodDuration == 0L && state.sessionBadDuration == 0L) return
+        sessionSaved = true
         viewModelScope.launch {
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
             val date = sdf.format(Date(state.sessionStartTime))

@@ -28,7 +28,8 @@ import java.util.Locale
 fun HistoryScreen(vm: PostureGuardViewModel) {
     val uiState by vm.uiState.collectAsState()
 
-    LaunchedEffect(Unit) { vm.loadHistoryData() }
+    // Refresh every time the screen is shown
+    LaunchedEffect(System.currentTimeMillis()) { vm.loadHistoryData() }
 
     Column(
         modifier = Modifier

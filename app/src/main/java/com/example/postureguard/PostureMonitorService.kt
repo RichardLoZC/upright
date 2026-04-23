@@ -35,7 +35,7 @@ class PostureMonitorService : Service() {
             ACTION_UPDATE -> {
                 val stateName = intent.getStringExtra(EXTRA_STATE) ?: "未知"
                 updateNotification(stateName)
-                return START_STICKY
+                return START_NOT_STICKY
             }
         }
 
