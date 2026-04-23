@@ -35,6 +35,9 @@ data class UiState(
     val isEcoMode: Boolean = false,
     val showDebug: Boolean = false,
     val badPostureStartMs: Long = 0L,
+    val goodRecoveryStartMs: Long = 0L,
+    val showPositioningGuide: Boolean = true,
+    val positioningResult: PositioningResult = PositioningResult.NO_PERSON,
     val isCalibrating: Boolean = false,
     val calibCountdown: Int = 0,
     val calibration: PostureLogic.CalibrationProfile? = null,
@@ -86,6 +89,9 @@ class UpRightViewModel(application: Application) : AndroidViewModel(application)
     private var calibrationJob: Job? = null
     private val noPersonStartMs = java.util.concurrent.atomic.AtomicLong(0)
     private val noPersonActive = java.util.concurrent.atomic.AtomicBoolean(false)
+    private var positionedSinceMs = 0L
+    private var positioningDismissed = false
+    private var noPersonForGuideMs = 0L
 
     val ecoEnabled get() = ecoModeFlag
     val ecoSkipCounter get() = ecoFrameSkip
@@ -286,6 +292,54 @@ class UpRightViewModel(application: Application) : AndroidViewModel(application)
             }
             val debounced = stateMachine.update(diag.state)
 
+            // --- Positioning guide check ---
+            val positioning = if (!positioningDismissed && landmarks != null) {
+                PostureLogic.checkPositioning(landmarks)
+            } else if (!positioningDismissed) {
+                PositioningResult.NO_PERSON
+            } else {
+                PositioningResult.POSITIONED
+            }
+
+            // Re-show guide if person leaves during monitoring
+            if (positioningDismissed) {
+                if (debounced == PostureState.NO_PERSON) {
+                    if (noPersonForGuideMs == 0L) {
+                        noPersonForGuideMs = System.currentTimeMillis()
+                    } else if (System.currentTimeMillis() - noPersonForGuideMs >= 5000) {
+                        positioningDismissed = false
+                        positionedSinceMs = 0L
+                        noPersonForGuideMs = 0L
+                        _uiState.value = _uiState.value.copy(
+                            showPositioningGuide = true,
+                            positioningResult = PositioningResult.NO_PERSON
+                        )
+                    }
+                } else {
+                    noPersonForGuideMs = 0L
+                }
+            }
+
+            if (positioning == PositioningResult.POSITIONED && !positioningDismissed) {
+                if (positionedSinceMs == 0L) {
+                    positionedSinceMs = System.currentTimeMillis()
+                } else if (System.currentTimeMillis() - positionedSinceMs >= 2000) {
+                    positioningDismissed = true
+                    _uiState.value = _uiState.value.copy(
+                        showPositioningGuide = false,
+                        positioningResult = PositioningResult.POSITIONED
+                    )
+                }
+            } else if (positioning != PositioningResult.POSITIONED) {
+                positionedSinceMs = 0L
+            }
+
+            if (!positioningDismissed) {
+                _uiState.value = _uiState.value.copy(positioningResult = positioning)
+                return@processImage
+            }
+
+            // --- Alert & vibration ---
             if (_uiState.value.settings.vibrationEnabled) {
                 vibrateOnStateChange(debounced)
             }
@@ -312,26 +366,36 @@ class UpRightViewModel(application: Application) : AndroidViewModel(application)
             val stateChanged = debounced != _uiState.value.currentPosture
             if (stateChanged || now - lastUiUpdateTime >= uiUpdateIntervalMs) {
                 updateSessionStats(debounced)
-                val newBadStartMs = if (stateChanged) {
-                    val wasBad = _uiState.value.currentPosture != PostureState.GOOD && _uiState.value.currentPosture != PostureState.NO_PERSON
-                    val nowBad = debounced != PostureState.GOOD && debounced != PostureState.NO_PERSON
-                    when {
-                        nowBad && !wasBad -> System.currentTimeMillis()
-                        !nowBad -> 0L
-                        else -> _uiState.value.badPostureStartMs
+
+                val prevBad = _uiState.value.badPostureStartMs
+                val prevRecovery = _uiState.value.goodRecoveryStartMs
+                val isBad = debounced != PostureState.GOOD && debounced != PostureState.NO_PERSON
+                val isGood = debounced == PostureState.GOOD
+
+                val (newBad, newRecovery) = when {
+                    isBad && prevBad == 0L -> Pair(System.currentTimeMillis(), 0L)
+                    isBad && prevRecovery > 0 -> Pair(prevBad, 0L)
+                    isGood && prevBad > 0L -> {
+                        val recoveryStart = if (prevRecovery == 0L) System.currentTimeMillis() else prevRecovery
+                        if (System.currentTimeMillis() - recoveryStart >= 10_000) {
+                            Pair(0L, 0L)
+                        } else {
+                            Pair(prevBad, recoveryStart)
+                        }
                     }
-                } else {
-                    _uiState.value.badPostureStartMs
+                    isGood -> Pair(0L, 0L)
+                    else -> Pair(prevBad, prevRecovery)
                 }
+
                 _uiState.value = _uiState.value.copy(
                     currentPosture = debounced,
                     diagnosis = diag.copy(state = debounced),
                     skeletonLandmarks = landmarks,
-                    badPostureStartMs = newBadStartMs
+                    badPostureStartMs = newBad,
+                    goodRecoveryStartMs = newRecovery
                 )
                 lastUiUpdateTime = now
 
-                // Update notification
                 if (stateChanged) {
                     updateNotificationState(debounced)
                 }
@@ -406,32 +470,23 @@ class UpRightViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private var lastSoundState = PostureState.NO_PERSON
-    private var badPostureStartMs = 0L
     private var cawPlayed = false
 
     private fun playAlertSound(state: PostureState) {
         val isBad = state != PostureState.GOOD && state != PostureState.NO_PERSON
+        val badStart = _uiState.value.badPostureStartMs
 
-        // Track when bad posture starts
-        if (isBad && lastSoundState == PostureState.GOOD) {
-            badPostureStartMs = System.currentTimeMillis()
-            cawPlayed = false
-        }
-
-        // Bird chirp: only if crow caw was previously triggered
-        if (state == PostureState.GOOD && isBad != (lastSoundState != PostureState.GOOD && lastSoundState != PostureState.NO_PERSON)) {
-            // no-op: this handles same-state transitions
-        }
-        if (state == PostureState.GOOD && lastSoundState != PostureState.GOOD && cawPlayed) {
+        // Bird chirp: only when recovery completes and caw was played
+        if (state == PostureState.GOOD && lastSoundState != PostureState.GOOD && badStart == 0L && cawPlayed) {
             soundEffects.playChirp()
             cawPlayed = false
         }
 
-        // Crow caw: only after bad posture persists for 1 minute, then at alert interval
-        if (isBad) {
+        // Crow caw: after bad posture persists for 10 seconds, then at alert interval
+        if (isBad && badStart > 0) {
             val now = System.currentTimeMillis()
-            val badDuration = now - badPostureStartMs
-            if (badDuration >= 60_000L) {
+            val badDuration = now - badStart
+            if (badDuration >= 10_000L) {
                 val interval = _uiState.value.settings.alertIntervalSeconds * 1000L
                 if (now - lastAlertTime >= interval) {
                     soundEffects.playCaw()

@@ -20,6 +20,8 @@ enum class PostureState {
     NO_PERSON
 }
 
+enum class PositioningResult { NO_PERSON, ADJUSTING, POSITIONED }
+
 object PostureLogic {
 
     // --- 2D thresholds (front camera, normalized coords 0-1) ---
@@ -266,6 +268,32 @@ object PostureLogic {
         if (magA < 1e-6 || magB < 1e-6) return 0.0
         val cosAngle = (a.dot(b) / (magA * magB)).coerceIn(-1.0, 1.0)
         return Math.toDegrees(kotlin.math.acos(cosAngle))
+    }
+
+    fun checkPositioning(landmarks: List<Landmark3D>): PositioningResult {
+        val nose = landmarks.getOrNull(0)
+        val leftShoulder = landmarks.getOrNull(11)
+        val rightShoulder = landmarks.getOrNull(12)
+        val leftHip = landmarks.getOrNull(23)
+        val rightHip = landmarks.getOrNull(24)
+
+        if (nose == null || leftShoulder == null || rightShoulder == null ||
+            leftHip == null || rightHip == null) return PositioningResult.NO_PERSON
+
+        val minVis = 0.5f
+        if (nose.visibility < minVis || leftShoulder.visibility < minVis ||
+            rightShoulder.visibility < minVis || leftHip.visibility < minVis ||
+            rightHip.visibility < minVis) return PositioningResult.ADJUSTING
+
+        if (nose.x < 0.3 || nose.x > 0.7) return PositioningResult.ADJUSTING
+
+        val noseToHip = abs(leftHip.y - nose.y)
+        if (noseToHip < 0.2 || noseToHip > 0.8) return PositioningResult.ADJUSTING
+
+        val shoulderSpan = abs(rightShoulder.x - leftShoulder.x)
+        if (shoulderSpan > 0.6) return PositioningResult.ADJUSTING
+
+        return PositioningResult.POSITIONED
     }
 }
 

@@ -9,6 +9,7 @@ import android.view.Surface
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -88,9 +89,27 @@ fun UpRightApp(vm: UpRightViewModel = viewModel()) {
 
     when (uiState.currentScreen) {
         Screen.ONBOARDING -> OnboardingScreen(vm)
-        Screen.MAIN -> MainWithPermission(vm)
-        Screen.SETTINGS -> SettingsScreen(vm)
-        Screen.HISTORY -> HistoryScreen(vm)
+        Screen.MAIN -> {
+            var lastBackTime by remember { mutableStateOf(0L) }
+            BackHandler {
+                val now = System.currentTimeMillis()
+                if (now - lastBackTime < 2000L) {
+                    (context as? ComponentActivity)?.finish()
+                } else {
+                    lastBackTime = now
+                    Toast.makeText(context, s.pressBackAgain, Toast.LENGTH_SHORT).show()
+                }
+            }
+            MainWithPermission(vm)
+        }
+        Screen.SETTINGS -> {
+            BackHandler { vm.navigateTo(Screen.MAIN) }
+            SettingsScreen(vm)
+        }
+        Screen.HISTORY -> {
+            BackHandler { vm.navigateTo(Screen.MAIN) }
+            HistoryScreen(vm)
+        }
     }
 }
 
@@ -262,6 +281,11 @@ fun CameraScreen(vm: UpRightViewModel) {
             EcoModeOverlay(s = s)
         }
 
+        // Positioning guide
+        if (uiState.showPositioningGuide) {
+            PositioningGuideOverlay(result = uiState.positioningResult, s = s)
+        }
+
         // Skeleton overlay
         val skeleton = uiState.skeletonLandmarks
         if (uiState.showDebug && skeleton != null) {
@@ -307,6 +331,89 @@ fun CameraScreen(vm: UpRightViewModel) {
                 containerColor = SurfaceCard
             ) {
                 Text(s.noPersonPause, color = TextPrimary, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PositioningGuideOverlay(result: PositioningResult, s: S) {
+    val frameColor by animateColorAsState(
+        targetValue = when (result) {
+            PositioningResult.POSITIONED -> PgGreen
+            PositioningResult.ADJUSTING -> PgOrange
+            PositioningResult.NO_PERSON -> Color.White.copy(alpha = 0.3f)
+        },
+        animationSpec = tween(500),
+        label = "frameColor"
+    )
+
+    val pulseAlpha = rememberInfiniteTransition(label = "framePulse").animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+        label = "framePulse"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xCC000000)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val frameW = size.width * 0.55f
+            val frameH = size.height * 0.65f
+            val left = (size.width - frameW) / 2
+            val top = (size.height - frameH) / 2
+            val strokeWidth = 4f
+
+            drawRoundRect(
+                color = frameColor.copy(alpha = pulseAlpha.value),
+                topLeft = Offset(left, top),
+                size = Size(frameW, frameH),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(32f, 32f),
+                style = Stroke(width = strokeWidth)
+            )
+
+            // Corner brackets
+            val cl = 40f
+            val sw = 5f
+            val corners = listOf(
+                Offset(left, top),
+                Offset(left + frameW, top),
+                Offset(left, top + frameH),
+                Offset(left + frameW, top + frameH)
+            )
+            drawLine(frameColor, corners[0], Offset(corners[0].x + cl, corners[0].y), sw, StrokeCap.Round)
+            drawLine(frameColor, corners[0], Offset(corners[0].x, corners[0].y + cl), sw, StrokeCap.Round)
+            drawLine(frameColor, corners[1], Offset(corners[1].x - cl, corners[1].y), sw, StrokeCap.Round)
+            drawLine(frameColor, corners[1], Offset(corners[1].x, corners[1].y + cl), sw, StrokeCap.Round)
+            drawLine(frameColor, corners[2], Offset(corners[2].x + cl, corners[2].y), sw, StrokeCap.Round)
+            drawLine(frameColor, corners[2], Offset(corners[2].x, corners[2].y - cl), sw, StrokeCap.Round)
+            drawLine(frameColor, corners[3], Offset(corners[3].x - cl, corners[3].y), sw, StrokeCap.Round)
+            drawLine(frameColor, corners[3], Offset(corners[3].x, corners[3].y - cl), sw, StrokeCap.Round)
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 280.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                when (result) {
+                    PositioningResult.POSITIONED -> s.positionGood
+                    PositioningResult.ADJUSTING -> s.positionTitle
+                    PositioningResult.NO_PERSON -> s.positionHint
+                },
+                color = frameColor,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            if (result != PositioningResult.POSITIONED) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(s.positionHint, color = TextMuted, fontSize = 14.sp)
             }
         }
     }
@@ -451,6 +558,21 @@ private fun TopBar(uiState: UiState, vm: UpRightViewModel, isLandscape: Boolean 
                     modifier = Modifier.size(20.dp)
                 )
             }
+            // Language quick-switch
+            IconButton(
+                onClick = {
+                    val newLang = if (uiState.settings.alertLanguage == AlertLanguage.ZH) AlertLanguage.EN else AlertLanguage.ZH
+                    vm.updateLanguage(newLang)
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.Language,
+                    contentDescription = s.language,
+                    tint = TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(4.dp))
             PostureStatusBadge(state = uiState.currentPosture, s = s)
         }
@@ -515,7 +637,7 @@ private fun BottomPanel(vm: UpRightViewModel, uiState: UiState, isLandscape: Boo
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                PostureRing(state = uiState.currentPosture, badPostureStartMs = uiState.badPostureStartMs, ringSize = 48.dp)
+                PostureRing(state = uiState.currentPosture, badPostureStartMs = uiState.badPostureStartMs, goodRecoveryStartMs = uiState.goodRecoveryStartMs, ringSize = 48.dp)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.Start) {
                     PostureStateText(state = uiState.currentPosture, compact = true, s = s)
@@ -530,7 +652,7 @@ private fun BottomPanel(vm: UpRightViewModel, uiState: UiState, isLandscape: Boo
             }
         } else {
             // Portrait layout (original)
-            PostureRing(state = uiState.currentPosture, badPostureStartMs = uiState.badPostureStartMs)
+            PostureRing(state = uiState.currentPosture, badPostureStartMs = uiState.badPostureStartMs, goodRecoveryStartMs = uiState.goodRecoveryStartMs)
             Spacer(modifier = Modifier.height(8.dp))
             PostureStateText(state = uiState.currentPosture, s = s)
             Spacer(modifier = Modifier.height(4.dp))
@@ -559,7 +681,12 @@ private fun BottomPanel(vm: UpRightViewModel, uiState: UiState, isLandscape: Boo
 }
 
 @Composable
-private fun PostureRing(state: PostureState, badPostureStartMs: Long = 0L, ringSize: Dp = 80.dp) {
+private fun PostureRing(
+    state: PostureState,
+    badPostureStartMs: Long = 0L,
+    goodRecoveryStartMs: Long = 0L,
+    ringSize: Dp = 80.dp
+) {
     val ringColor by animateColorAsState(
         targetValue = when (state) {
             PostureState.GOOD -> PgGreen
@@ -571,37 +698,33 @@ private fun PostureRing(state: PostureState, badPostureStartMs: Long = 0L, ringS
     )
 
     val isBad = state != PostureState.GOOD && state != PostureState.NO_PERSON
+    val isRecovering = goodRecoveryStartMs > 0
 
-    // Bad posture timer: smooth progress from 0→1 over 60 seconds
-    var badProgress by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(badPostureStartMs) {
-        if (badPostureStartMs > 0) {
+    // Timer progress: 10s for both bad and recovery
+    var progress by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(badPostureStartMs, goodRecoveryStartMs) {
+        val startMs = if (goodRecoveryStartMs > 0) goodRecoveryStartMs
+                      else if (badPostureStartMs > 0) badPostureStartMs
+                      else 0L
+        if (startMs > 0) {
             while (true) {
-                badProgress = ((System.currentTimeMillis() - badPostureStartMs) / 60000f).coerceIn(0f, 1f)
+                progress = ((System.currentTimeMillis() - startMs) / 10_000f).coerceIn(0f, 1f)
                 delay(50)
             }
         } else {
-            badProgress = 0f
+            progress = 0f
         }
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "ringPulse")
     val goodPulse by infiniteTransition.animateFloat(
-        initialValue = 0.7f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = 0.7f, targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(tween(1500), RepeatMode.Reverse),
         label = "goodPulse"
     )
     val glowPulse by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = 0.5f, targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse),
         label = "glowPulse"
     )
 
@@ -615,71 +738,76 @@ private fun PostureRing(state: PostureState, badPostureStartMs: Long = 0L, ringS
         // Background track
         drawArc(
             color = Color.White.copy(alpha = 0.1f),
-            startAngle = 0f,
-            sweepAngle = 360f,
-            useCenter = false,
-            topLeft = topLeft,
-            size = Size(diameter, diameter),
+            startAngle = 0f, sweepAngle = 360f, useCenter = false,
+            topLeft = topLeft, size = Size(diameter, diameter),
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
 
         when {
-            state == PostureState.GOOD -> {
-                // Full circle with gentle breathing pulse
+            state == PostureState.GOOD && !isRecovering -> {
                 drawArc(
                     color = ringColor.copy(alpha = goodPulse),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = Size(diameter, diameter),
+                    startAngle = -90f, sweepAngle = 360f, useCenter = false,
+                    topLeft = topLeft, size = Size(diameter, diameter),
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                 )
             }
-            isBad -> {
-                val sweepAngle = badProgress * 360f
+            isRecovering -> {
+                // Green recovery arc filling over 10s
+                val sweepAngle = progress * 360f
                 if (sweepAngle > 1f) {
-                    // Progress arc
                     drawArc(
-                        color = ringColor,
-                        startAngle = -90f,
-                        sweepAngle = sweepAngle,
-                        useCenter = false,
-                        topLeft = topLeft,
-                        size = Size(diameter, diameter),
+                        color = PgGreen,
+                        startAngle = -90f, sweepAngle = sweepAngle, useCenter = false,
+                        topLeft = topLeft, size = Size(diameter, diameter),
                         style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                     )
-
                     // Glowing leading edge
-                    val angleDeg = -90.0 + sweepAngle
-                    val angleRad = Math.toRadians(angleDeg)
-                    val edgeX = center.x + radius * cos(angleRad).toFloat()
-                    val edgeY = center.y + radius * sin(angleRad).toFloat()
-                    val edgeOffset = Offset(edgeX, edgeY)
-
-                    // Outer glow
-                    drawCircle(
-                        color = ringColor.copy(alpha = 0.3f * glowPulse),
-                        radius = strokeWidth * 1.5f,
-                        center = edgeOffset
+                    val angleRad = Math.toRadians((-90.0 + sweepAngle))
+                    val edgeOffset = Offset(
+                        center.x + radius * cos(angleRad).toFloat(),
+                        center.y + radius * sin(angleRad).toFloat()
                     )
-                    // Bright dot
+                    drawCircle(
+                        color = PgGreen.copy(alpha = 0.3f * glowPulse),
+                        radius = strokeWidth * 1.5f, center = edgeOffset
+                    )
                     drawCircle(
                         color = Color.White.copy(alpha = 0.9f * glowPulse),
-                        radius = strokeWidth * 0.4f,
-                        center = edgeOffset
+                        radius = strokeWidth * 0.4f, center = edgeOffset
+                    )
+                }
+            }
+            isBad -> {
+                val sweepAngle = progress * 360f
+                if (sweepAngle > 1f) {
+                    drawArc(
+                        color = ringColor,
+                        startAngle = -90f, sweepAngle = sweepAngle, useCenter = false,
+                        topLeft = topLeft, size = Size(diameter, diameter),
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                    val angleRad = Math.toRadians((-90.0 + sweepAngle))
+                    val edgeOffset = Offset(
+                        center.x + radius * cos(angleRad).toFloat(),
+                        center.y + radius * sin(angleRad).toFloat()
+                    )
+                    drawCircle(
+                        color = ringColor.copy(alpha = 0.3f * glowPulse),
+                        radius = strokeWidth * 1.5f, center = edgeOffset
+                    )
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.9f * glowPulse),
+                        radius = strokeWidth * 0.4f, center = edgeOffset
                     )
                 }
             }
             else -> {
-                // NO_PERSON: small gray arc
+                // NO_PERSON
                 drawArc(
                     color = ringColor,
-                    startAngle = -90f,
-                    sweepAngle = 60f,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = Size(diameter, diameter),
+                    startAngle = -90f, sweepAngle = 60f, useCenter = false,
+                    topLeft = topLeft, size = Size(diameter, diameter),
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                 )
             }

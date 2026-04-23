@@ -121,6 +121,14 @@ data class S(
     // Time units
     val seconds: List<String>,
     val minutes: List<String>,
+
+    // Back press
+    val pressBackAgain: String,
+
+    // Positioning guide
+    val positionTitle: String,
+    val positionHint: String,
+    val positionGood: String,
 )
 
 val StringsZh = S(
@@ -221,6 +229,10 @@ val StringsZh = S(
     notifUnknown = "未知",
     seconds = listOf("5秒", "10秒", "30秒", "60秒"),
     minutes = listOf("5分钟", "10分钟", "15分钟", "20分钟"),
+    pressBackAgain = "再按一次退出",
+    positionTitle = "调整位置",
+    positionHint = "请将上半身放入框内",
+    positionGood = "位置合适！",
 )
 
 val StringsEn = S(
@@ -321,6 +333,10 @@ val StringsEn = S(
     notifUnknown = "Unknown",
     seconds = listOf("5s", "10s", "30s", "60s"),
     minutes = listOf("5m", "10m", "15m", "20m"),
+    pressBackAgain = "Press back again to exit",
+    positionTitle = "Adjust Position",
+    positionHint = "Place your upper body in the frame",
+    positionGood = "Perfect!",
 )
 
 fun stringsFor(lang: AlertLanguage) = when (lang) {
