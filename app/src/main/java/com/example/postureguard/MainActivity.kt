@@ -23,6 +23,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -53,7 +54,10 @@ import com.example.postureguard.ui.theme.*
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import java.util.concurrent.Executors
+import kotlinx.coroutines.delay
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -511,7 +515,7 @@ private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                PostureRing(state = uiState.currentPosture, ringSize = 48.dp)
+                PostureRing(state = uiState.currentPosture, badPostureStartMs = uiState.badPostureStartMs, ringSize = 48.dp)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.Start) {
                     PostureStateText(state = uiState.currentPosture, compact = true, s = s)
@@ -526,7 +530,7 @@ private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape
             }
         } else {
             // Portrait layout (original)
-            PostureRing(state = uiState.currentPosture)
+            PostureRing(state = uiState.currentPosture, badPostureStartMs = uiState.badPostureStartMs)
             Spacer(modifier = Modifier.height(8.dp))
             PostureStateText(state = uiState.currentPosture, s = s)
             Spacer(modifier = Modifier.height(4.dp))
@@ -555,8 +559,8 @@ private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape
 }
 
 @Composable
-private fun PostureRing(state: PostureState, ringSize: Dp = 80.dp) {
-    val color by animateColorAsState(
+private fun PostureRing(state: PostureState, badPostureStartMs: Long = 0L, ringSize: Dp = 80.dp) {
+    val ringColor by animateColorAsState(
         targetValue = when (state) {
             PostureState.GOOD -> PgGreen
             PostureState.NO_PERSON -> PgGray
@@ -568,22 +572,47 @@ private fun PostureRing(state: PostureState, ringSize: Dp = 80.dp) {
 
     val isBad = state != PostureState.GOOD && state != PostureState.NO_PERSON
 
+    // Bad posture timer: smooth progress from 0→1 over 60 seconds
+    var badProgress by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(badPostureStartMs) {
+        if (badPostureStartMs > 0) {
+            while (true) {
+                badProgress = ((System.currentTimeMillis() - badPostureStartMs) / 60000f).coerceIn(0f, 1f)
+                delay(50)
+            }
+        } else {
+            badProgress = 0f
+        }
+    }
+
     val infiniteTransition = rememberInfiniteTransition(label = "ringPulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.0f,
-        targetValue = if (isBad) 0.4f else 0.0f,
+    val goodPulse by infiniteTransition.animateFloat(
+        initialValue = 0.7f,
+        targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800),
+            animation = tween(1500),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "pulseAlpha"
+        label = "goodPulse"
+    )
+    val glowPulse by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glowPulse"
     )
 
     Canvas(modifier = Modifier.size(ringSize)) {
         val strokeWidth = 6.dp.toPx()
         val diameter = min(size.width, size.height) - strokeWidth
         val topLeft = Offset((size.width - diameter) / 2, (size.height - diameter) / 2)
+        val center = Offset(size.width / 2, size.height / 2)
+        val radius = diameter / 2
 
+        // Background track
         drawArc(
             color = Color.White.copy(alpha = 0.1f),
             startAngle = 0f,
@@ -594,28 +623,67 @@ private fun PostureRing(state: PostureState, ringSize: Dp = 80.dp) {
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
 
-        if (pulseAlpha > 0f) {
-            drawArc(
-                color = color.copy(alpha = pulseAlpha),
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = topLeft,
-                size = Size(diameter, diameter),
-                style = Stroke(width = strokeWidth + 4.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
+        when {
+            state == PostureState.GOOD -> {
+                // Full circle with gentle breathing pulse
+                drawArc(
+                    color = ringColor.copy(alpha = goodPulse),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = Size(diameter, diameter),
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+            }
+            isBad -> {
+                val sweepAngle = badProgress * 360f
+                if (sweepAngle > 1f) {
+                    // Progress arc
+                    drawArc(
+                        color = ringColor,
+                        startAngle = -90f,
+                        sweepAngle = sweepAngle,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = Size(diameter, diameter),
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
 
-        val sweep = if (state == PostureState.NO_PERSON) 60f else 360f
-        drawArc(
-            color = color,
-            startAngle = -90f,
-            sweepAngle = sweep,
-            useCenter = false,
-            topLeft = topLeft,
-            size = Size(diameter, diameter),
-            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-        )
+                    // Glowing leading edge
+                    val angleDeg = -90.0 + sweepAngle
+                    val angleRad = Math.toRadians(angleDeg)
+                    val edgeX = center.x + radius * cos(angleRad).toFloat()
+                    val edgeY = center.y + radius * sin(angleRad).toFloat()
+                    val edgeOffset = Offset(edgeX, edgeY)
+
+                    // Outer glow
+                    drawCircle(
+                        color = ringColor.copy(alpha = 0.3f * glowPulse),
+                        radius = strokeWidth * 1.5f,
+                        center = edgeOffset
+                    )
+                    // Bright dot
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.9f * glowPulse),
+                        radius = strokeWidth * 0.4f,
+                        center = edgeOffset
+                    )
+                }
+            }
+            else -> {
+                // NO_PERSON: small gray arc
+                drawArc(
+                    color = ringColor,
+                    startAngle = -90f,
+                    sweepAngle = 60f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = Size(diameter, diameter),
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+            }
+        }
     }
 }
 

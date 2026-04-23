@@ -33,7 +33,8 @@ data class UiState(
     val diagnosis: PostureDiagnosis? = null,
     val skeletonLandmarks: List<Landmark3D>? = null,
     val isEcoMode: Boolean = false,
-    val showDebug: Boolean = true,
+    val showDebug: Boolean = false,
+    val badPostureStartMs: Long = 0L,
     val isCalibrating: Boolean = false,
     val calibCountdown: Int = 0,
     val calibration: PostureLogic.CalibrationProfile? = null,
@@ -311,10 +312,22 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
             val stateChanged = debounced != _uiState.value.currentPosture
             if (stateChanged || now - lastUiUpdateTime >= uiUpdateIntervalMs) {
                 updateSessionStats(debounced)
+                val newBadStartMs = if (stateChanged) {
+                    val wasBad = _uiState.value.currentPosture != PostureState.GOOD && _uiState.value.currentPosture != PostureState.NO_PERSON
+                    val nowBad = debounced != PostureState.GOOD && debounced != PostureState.NO_PERSON
+                    when {
+                        nowBad && !wasBad -> System.currentTimeMillis()
+                        !nowBad -> 0L
+                        else -> _uiState.value.badPostureStartMs
+                    }
+                } else {
+                    _uiState.value.badPostureStartMs
+                }
                 _uiState.value = _uiState.value.copy(
                     currentPosture = debounced,
                     diagnosis = diag.copy(state = debounced),
-                    skeletonLandmarks = landmarks
+                    skeletonLandmarks = landmarks,
+                    badPostureStartMs = newBadStartMs
                 )
                 lastUiUpdateTime = now
 
