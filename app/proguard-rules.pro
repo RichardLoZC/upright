@@ -34,3 +34,7 @@
 -keep class com.example.postureguard.SessionEntity { *; }
 -keep class com.example.postureguard.DailySummary { *; }
 -keep class com.example.postureguard.Screen { *; }
+
+# Auto-value annotations (compile-time only)
+-dontwarn javax.annotation.processing.**
+-dontwarn javax.lang.model.**
