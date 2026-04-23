@@ -257,6 +257,8 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
         pauseJob?.cancel()
         pauseJob = null
         noPersonActive.set(false)
+        sessionSaved = false
+        lastStatsUpdateTime = System.currentTimeMillis()
         _uiState.value = _uiState.value.copy(isPaused = false, pauseRemainingSeconds = 0, showPauseSuggestion = false)
     }
 

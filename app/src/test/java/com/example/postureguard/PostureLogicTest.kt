@@ -77,6 +77,25 @@ class PostureLogic2DTest {
         val badResult = PostureLogic.analyzeWithDiagnosis(badLm, null, 30.0, calib)
         assertEquals(PostureState.BAD_TILT_LEFT, badResult.state)
     }
+
+    @Test
+    fun `sensitivity multiplier LOW requires larger deviation`() {
+        // Slight tilt that would trigger with default sensitivity
+        val lm = makeLandmarks(leftEar = lm(0.4, 0.36), rightEar = lm(0.6, 0.3))
+        // earDiffY = 0.06, threshold * 1.5 = 0.075 → 0.06 < 0.075 so GOOD
+        val lowResult = PostureLogic.analyzeWithDiagnosis(lm, null, 30.0, null, 1.5)
+        assertEquals(PostureState.GOOD, lowResult.state)
+    }
+
+    @Test
+    fun `sensitivity multiplier HIGH triggers more easily`() {
+        // Slight tilt that would NOT trigger with default sensitivity
+        // earDiffY = 0.04, default threshold = 0.05 → GOOD
+        // but HIGH threshold = 0.05 * 0.7 = 0.035 → 0.04 > 0.035 so BAD
+        val lm = makeLandmarks(leftEar = lm(0.4, 0.34), rightEar = lm(0.6, 0.3))
+        val highResult = PostureLogic.analyzeWithDiagnosis(lm, null, 30.0, null, 0.7)
+        assertEquals(PostureState.BAD_TILT_LEFT, highResult.state)
+    }
 }
 
 class PostureLogic3DTest {
