@@ -281,7 +281,7 @@ private fun WeeklyBarChart(summary: List<DailySummary>) {
                 if (total > 0) {
                     Text("${(ratio * 100).toInt()}%", color = barColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 } else {
-                    Spacer(modifier = Modifier.height(11.sp.value.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
                 Text(dayNames[i], color = TextMuted, fontSize = 12.sp)
             }

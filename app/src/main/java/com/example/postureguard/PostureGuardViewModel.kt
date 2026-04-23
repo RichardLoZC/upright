@@ -66,7 +66,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     private var isTtsReady = false
     private var lastAlertTime = 0L
 
-    private val calibSamples = mutableListOf<Pair<List<Landmark3D>, List<Landmark3D>?>>()
+    private val calibSamples = java.util.concurrent.CopyOnWriteArrayList<Pair<List<Landmark3D>, List<Landmark3D>?>>()
     private val ecoModeFlag = java.util.concurrent.atomic.AtomicBoolean(false)
     private val ecoFrameSkip = java.util.concurrent.atomic.AtomicInteger(0)
     private val calibrationStore = CalibrationStore(application)
