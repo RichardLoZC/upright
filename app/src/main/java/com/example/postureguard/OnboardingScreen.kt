@@ -117,17 +117,14 @@ fun OnboardingScreen(vm: PostureGuardViewModel) {
                 } else {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Button(
-                            onClick = {
-                                vm.completeOnboarding()
-                                vm.startCalibration()
-                            },
+                            onClick = { vm.completeOnboarding() },
                             shape = RoundedCornerShape(24.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = PgGreen),
                             modifier = Modifier.padding(horizontal = 32.dp)
                         ) {
-                            Icon(Icons.Default.Tune, contentDescription = "开始校准", modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Check, contentDescription = "开始使用", modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("开始校准", fontSize = 16.sp)
+                            Text("开始使用", fontSize = 16.sp)
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         TextButton(onClick = { vm.completeOnboarding() }) {

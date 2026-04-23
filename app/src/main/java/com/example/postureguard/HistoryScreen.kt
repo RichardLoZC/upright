@@ -193,8 +193,11 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
 
 @Composable
 private fun TodayGoalRing(uiState: UiState) {
-    val good = uiState.sessionGoodDuration
-    val bad = uiState.sessionBadDuration
+    // Combine saved sessions + current live session for today's goal
+    val savedGood = uiState.todaySessions.sumOf { it.goodDurationSeconds }
+    val savedBad = uiState.todaySessions.sumOf { it.badDurationSeconds }
+    val good = savedGood + uiState.sessionGoodDuration
+    val bad = savedBad + uiState.sessionBadDuration
     val total = good + bad
     val ratio = if (total > 0) good.toFloat() / total else 0f
     val metGoal = ratio >= 0.8f

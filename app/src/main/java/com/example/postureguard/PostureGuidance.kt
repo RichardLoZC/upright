@@ -80,16 +80,16 @@ fun PostureGuidanceArrow(state: PostureState) {
                 )
             }
             PostureState.BAD_SLOUCH -> {
-                // Two arrows: level shoulders
+                // Two horizontal arrows: bring shoulders to same level
                 val y = cy + 40f
                 drawArrow(
-                    start = Offset(cx - 40f, y - bounceOffset * 0.5f),
-                    end = Offset(cx - 40f, y - 60f - bounceOffset * 0.5f),
+                    start = Offset(cx - 80f + bounceOffset, y),
+                    end = Offset(cx - 30f + bounceOffset, y),
                     color = color
                 )
                 drawArrow(
-                    start = Offset(cx + 40f, y + bounceOffset * 0.5f),
-                    end = Offset(cx + 40f, y - 60f + bounceOffset * 0.5f),
+                    start = Offset(cx + 80f - bounceOffset, y),
+                    end = Offset(cx + 30f - bounceOffset, y),
                     color = color
                 )
             }
