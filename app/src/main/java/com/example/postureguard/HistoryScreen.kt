@@ -31,6 +31,23 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
     // Refresh every time the screen is shown
     LaunchedEffect(System.currentTimeMillis()) { vm.loadHistoryData() }
 
+    // Show loading while data is being fetched
+    if (uiState.weeklySummary.isEmpty() && uiState.todaySessions.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SurfaceDark),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator(color = PgGreen, modifier = Modifier.size(32.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("加载中...", color = TextMuted, fontSize = 14.sp)
+            }
+        }
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

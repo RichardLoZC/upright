@@ -394,14 +394,15 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private fun updateNotificationState(state: PostureState) {
+        val useEn = _uiState.value.settings.alertLanguage == AlertLanguage.EN
         val stateText = when (state) {
-            PostureState.GOOD -> "坐姿良好"
-            PostureState.BAD_TILT_LEFT -> "头部向左歪斜"
-            PostureState.BAD_TILT_RIGHT -> "头部向右歪斜"
-            PostureState.BAD_SLOUCH -> "肩膀不平"
-            PostureState.BAD_FORWARD_HEAD -> "头部前倾"
-            PostureState.BAD_HUNCHBACK -> "驼背"
-            PostureState.NO_PERSON -> "未检测到人"
+            PostureState.GOOD -> if (useEn) "Good posture" else "坐姿良好"
+            PostureState.BAD_TILT_LEFT -> if (useEn) "Head tilting left" else "头部向左歪斜"
+            PostureState.BAD_TILT_RIGHT -> if (useEn) "Head tilting right" else "头部向右歪斜"
+            PostureState.BAD_SLOUCH -> if (useEn) "Uneven shoulders" else "肩膀不平"
+            PostureState.BAD_FORWARD_HEAD -> if (useEn) "Forward head" else "头部前倾"
+            PostureState.BAD_HUNCHBACK -> if (useEn) "Slouching" else "驼背"
+            PostureState.NO_PERSON -> if (useEn) "No person detected" else "未检测到人"
         }
         val app = getApplication<Application>()
         val intent = Intent(app, PostureMonitorService::class.java).apply {

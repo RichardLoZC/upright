@@ -152,6 +152,25 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                 )
             }
 
+            // Eco mode
+            SettingsSection("省电模式") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("省电模式", color = TextSecondary, fontSize = 14.sp)
+                        Text("关闭预览画面，降低检测频率", color = TextMuted, fontSize = 12.sp)
+                    }
+                    Switch(
+                        checked = uiState.isEcoMode,
+                        onCheckedChange = { vm.toggleEcoMode() },
+                        colors = SwitchDefaults.colors(checkedTrackColor = PgGreen)
+                    )
+                }
+            }
+
             // Calibration management
             SettingsSection("校准管理") {
                 Row(
@@ -212,6 +231,19 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                         }
                     }
                 }
+            }
+
+            // About
+            SettingsSection("关于") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("版本", color = TextSecondary, fontSize = 14.sp)
+                    Text("1.0.0", color = TextMuted, fontSize = 14.sp)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("PostureGuard 使用设备端 AI 进行实时坐姿监测，无需网络连接。", color = TextMuted, fontSize = 12.sp)
             }
 
             Spacer(modifier = Modifier.height(32.dp))
