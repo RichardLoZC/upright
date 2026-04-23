@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import androidx.room.Entity
 import androidx.room.Index

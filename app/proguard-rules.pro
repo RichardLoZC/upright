@@ -13,12 +13,12 @@
 }
 
 # Keep data classes used in serialization
--keep class com.example.postureguard.Landmark3D { *; }
--keep class com.example.postureguard.PostureDiagnosis { *; }
--keep class com.example.postureguard.PostureState { *; }
--keep class com.example.postureguard.CalibrationProfile { *; }
--keep class com.example.postureguard.BoneLengths { *; }
--keep class com.example.postureguard.RotationMatrix { *; }
+-keep class com.example.upright.Landmark3D { *; }
+-keep class com.example.upright.PostureDiagnosis { *; }
+-keep class com.example.upright.PostureState { *; }
+-keep class com.example.upright.CalibrationProfile { *; }
+-keep class com.example.upright.BoneLengths { *; }
+-keep class com.example.upright.RotationMatrix { *; }
 
 # Room
 -keep class * extends androidx.room.RoomDatabase
@@ -26,14 +26,14 @@
 -dontwarn androidx.room.paging.**
 
 # Settings
--keep class com.example.postureguard.SettingsProfile { *; }
--keep class com.example.postureguard.SensitivityLevel { *; }
--keep class com.example.postureguard.AlertLanguage { *; }
+-keep class com.example.upright.SettingsProfile { *; }
+-keep class com.example.upright.SensitivityLevel { *; }
+-keep class com.example.upright.AlertLanguage { *; }
 
 # Session data classes
--keep class com.example.postureguard.SessionEntity { *; }
--keep class com.example.postureguard.DailySummary { *; }
--keep class com.example.postureguard.Screen { *; }
+-keep class com.example.upright.SessionEntity { *; }
+-keep class com.example.upright.DailySummary { *; }
+-keep class com.example.upright.Screen { *; }
 
 # Auto-value annotations (compile-time only)
 -dontwarn javax.annotation.processing.**

@@ -1,14 +1,14 @@
-# PostureGuard - CLAUDE.md
+# UpRight - CLAUDE.md
 
 ## Project Overview
 
-PostureGuard is a native Android app that uses the front-facing camera to monitor sitting posture in real time. It runs entirely on-device (MediaPipe Pose Landmarker Full model) with no network dependency, making it suitable for repurposing an old phone as a dedicated posture monitor.
+UpRight is a native Android app that uses the front-facing camera to monitor sitting posture in real time. It runs entirely on-device (MediaPipe Pose Landmarker Full model) with no network dependency, making it suitable for repurposing an old phone as a dedicated posture monitor.
 
 ## Tech Stack
 
 - **Language**: Kotlin
 - **UI**: Jetpack Compose + Material3 + Material Icons Extended
-- **Theme**: Custom dark theme with branded PostureGuard color palette
+- **Theme**: Custom dark theme with branded UpRight color palette
 - **Architecture**: ViewModel + StateFlow (unidirectional data flow), screen-based navigation (no compose-navigation)
 - **Camera**: CameraX (ImageAnalysis + Preview)
 - **Pose Detection**: Google MediaPipe Pose Landmarker (Full model, GPU with CPU fallback)
@@ -23,9 +23,9 @@ PostureGuard is a native Android app that uses the front-facing camera to monito
 ## Project Structure
 
 ```
-app/src/main/java/com/example/postureguard/
+app/src/main/java/com/example/upright/
 ├── MainActivity.kt            # Activity, Compose UI with animated posture ring, skeleton overlay, session stats
-├── PostureGuardViewModel.kt   # ViewModel: sound effects, calibration, state machine, haptics, session tracking, throttled UI, pause, settings, navigation
+├── UpRightViewModel.kt   # ViewModel: sound effects, calibration, state machine, haptics, session tracking, throttled UI, pause, settings, navigation
 ├── PoseDetector.kt            # MediaPipe PoseLandmarker wrapper (LIVE_STREAM, GPU/CPU fallback)
 ├── PostureLogic.kt            # Biomechanical analysis (CVA, trunk angle, head tilt, shoulder asymmetry) with sensitivity multiplier
 │                              # CalibrationProfile, PostureStateMachine, calibrated analysis
@@ -46,7 +46,7 @@ app/src/main/java/com/example/postureguard/
 ├── PostureDiagnosis.kt        # Data class for analysis results
 └── ui/theme/Theme.kt          # Compose Material3 theme
 
-app/src/test/java/com/example/postureguard/
+app/src/test/java/com/example/upright/
 └── PostureLogicTest.kt        # Unit tests (2D/3D analysis, state machine, filter, spatial refinement, sensitivity)
 ```
 
@@ -57,16 +57,16 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 export ANDROID_HOME=$HOME/Library/Android/sdk
 ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell pm grant com.example.postureguard android.permission.CAMERA
-adb shell am start -n com.example.postureguard/.MainActivity
+adb shell pm grant com.example.upright android.permission.CAMERA
+adb shell am start -n com.example.upright/.MainActivity
 ```
 
 Requires a physical device with a front camera. Camera permission is requested at first launch.
 
 ## Architecture Notes
 
-- **ViewModel pattern**: All state flows through `PostureGuardViewModel` → `UiState` StateFlow → Compose UI
-- **Screen navigation**: `Screen` enum (ONBOARDING, MAIN, SETTINGS, HISTORY) in UiState, rendered via `when` expression in `PostureGuardApp`
+- **ViewModel pattern**: All state flows through `UpRightViewModel` → `UiState` StateFlow → Compose UI
+- **Screen navigation**: `Screen` enum (ONBOARDING, MAIN, SETTINGS, HISTORY) in UiState, rendered via `when` expression in `UpRightApp`
 - **Onboarding**: 3-page flow shown on first launch, persisted via SettingsStore
 - PoseDetector wraps MediaPipe in LIVE_STREAM mode with async result callbacks
 - FrameProcessor handles bitmap rotation, FPS tracking, and token-based async result matching
@@ -93,7 +93,7 @@ Requires a physical device with a front camera. Camera permission is requested a
 - UI updates throttled to ~30fps to reduce unnecessary recompositions
 - NO_PERSON timeout (2 min) suggests pausing monitoring
 - Thread-safe calibration sample collection (CopyOnWriteArrayList)
-- Custom dark theme with PostureGuard brand colors (green/red/blue/gray/orange)
+- Custom dark theme with UpRight brand colors (green/red/blue/gray/orange)
 
 ## Detection Thresholds
 

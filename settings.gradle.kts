@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "PostureGuard"
+rootProject.name = "UpRight"
 include(":app")

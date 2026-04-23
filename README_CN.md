@@ -1,4 +1,4 @@
-<h1 align="center">PostureGuard 坐姿卫士</h1>
+<h1 align="center">UpRight 坐姿卫士</h1>
 
 <p align="center">
   <strong>基于端侧 AI 的实时坐姿监测应用</strong>
@@ -76,7 +76,7 @@
 | 信号平滑 | 1 Euro Filter (自适应去抖) |
 | 音效输出 | 合成鸟鸣 / 乌鸦叫声 (AudioTrack PCM) |
 | 振动 | Android Vibrator (状态变化提醒) |
-| 主题 | 自定义暗色主题，PostureGuard 品牌配色 |
+| 主题 | 自定义暗色主题，UpRight 品牌配色 |
 | 构建系统 | Gradle Kotlin DSL |
 
 ## 快速开始
@@ -98,7 +98,7 @@ cd posture_detect
 ./gradlew installDebug
 
 # 授予相机权限（首次安装）
-adb shell pm grant com.example.postureguard android.permission.CAMERA
+adb shell pm grant com.example.upright android.permission.CAMERA
 ```
 
 也可以在 Android Studio 中打开项目，同步 Gradle 后点击 **Run**。
@@ -114,9 +114,9 @@ adb shell pm grant com.example.postureguard android.permission.CAMERA
 ## 项目结构
 
 ```
-app/src/main/java/com/example/postureguard/
+app/src/main/java/com/example/upright/
 ├── MainActivity.kt            # Compose UI，含动画姿态环、骨骼叠加、会话统计
-├── PostureGuardViewModel.kt   # ViewModel: 音效、校准、状态机、振动、会话追踪
+├── UpRightViewModel.kt   # ViewModel: 音效、校准、状态机、振动、会话追踪
 ├── PoseDetector.kt            # MediaPipe 姿态检测封装 (实时流, GPU/CPU)
 ├── PostureLogic.kt            # 生物力学分析、校准、状态机
 ├── OneEuroFilter.kt           # 关键点自适应时序平滑滤波
@@ -177,7 +177,7 @@ app/src/main/assets/
 
 | 问题 | 解决方案 |
 |------|---------|
-| 启动闪退 | 在 设置 → 应用 → PostureGuard 中授予相机权限 |
+| 启动闪退 | 在 设置 → 应用 → UpRight 中授予相机权限 |
 | 3D 显示 OFF | 确保正面光线充足；肩膀/髋部可见度需 > 0.3 |
 | 无提示音 | 检查媒体音量是否已调大 |
 | 耗电太快 | 开启省电模式，降低屏幕和处理负载 |

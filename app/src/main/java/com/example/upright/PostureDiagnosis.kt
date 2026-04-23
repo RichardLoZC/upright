@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 data class PostureDiagnosis(
     val state: PostureState,

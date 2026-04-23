@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.postureguard"
+    namespace = "com.example.upright"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.postureguard"
+        applicationId = "com.example.upright"
         minSdk = 26 // Android 8.0
         targetSdk = 34
         versionCode = 2

@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -17,11 +17,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.postureguard.ui.theme.*
+import com.example.upright.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: PostureGuardViewModel) {
+fun SettingsScreen(vm: UpRightViewModel) {
     val uiState by vm.uiState.collectAsState()
     val settings = uiState.settings
     val s = stringsFor(settings.alertLanguage)

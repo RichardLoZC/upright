@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import androidx.room.Dao
 import androidx.room.Insert

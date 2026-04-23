@@ -1,4 +1,4 @@
-package com.example.postureguard.ui.theme
+package com.example.upright.ui.theme
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// PostureGuard Brand Colors
+// UpRight Brand Colors
 val PgGreen = Color(0xFF4CAF50)
 val PgGreenDark = Color(0xFF388E3C)
 val PgGreenLight = Color(0xFF81C784)
@@ -52,7 +52,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun PostureGuardTheme(
+fun UpRightTheme(
     @Suppress("UNUSED_PARAMETER") darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {

@@ -12,17 +12,17 @@
 
     <application
         android:allowBackup="true"
-        android:label="PostureGuard"
+        android:label="UpRight"
         android:supportsRtl="true"
-        android:theme="@style/Theme.PostureGuard">
-        
+        android:theme="@style/Theme.UpRight">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="PostureGuard"
+            android:label="UpRight"
             android:screenOrientation="fullSensor"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
-            android:theme="@style/Theme.PostureGuard">
+            android:theme="@style/Theme.UpRight">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

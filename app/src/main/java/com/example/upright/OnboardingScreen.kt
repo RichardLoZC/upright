@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInHorizontally
@@ -21,10 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.postureguard.ui.theme.*
+import com.example.upright.ui.theme.*
 
 @Composable
-fun OnboardingScreen(vm: PostureGuardViewModel) {
+fun OnboardingScreen(vm: UpRightViewModel) {
     val uiState by vm.uiState.collectAsState()
     val s = stringsFor(uiState.settings.alertLanguage)
     var page by remember { mutableIntStateOf(0) }
@@ -57,7 +57,7 @@ fun OnboardingScreen(vm: PostureGuardViewModel) {
                     0 -> OnboardingPage(
                         icon = Icons.Default.Shield,
                         iconColor = PgGreen,
-                        title = "PostureGuard",
+                        title = "UpRight",
                         subtitle = s.onbTitle1,
                         description = s.onbDesc1
                     )

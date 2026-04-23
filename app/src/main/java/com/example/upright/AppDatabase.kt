@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import android.content.Context
 import androidx.room.Database
@@ -18,7 +18,7 @@ abstract class AppDatabase : RoomDatabase() {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "postureguard-db"
+                    "upright-db"
                 ).fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }

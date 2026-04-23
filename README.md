@@ -1,4 +1,4 @@
-<h1 align="center">PostureGuard</h1>
+<h1 align="center">UpRight</h1>
 
 <p align="center">
   <strong>Real-time sitting posture monitor powered by on-device AI</strong>
@@ -76,7 +76,7 @@ Front Camera → CameraX ImageAnalysis → MediaPipe Pose Landmarker (Full)
 | Smoothing | 1 Euro Filter (adaptive jitter reduction) |
 | Sound Effects | Synthesized bird chirp / crow caw via AudioTrack PCM |
 | Haptic | Android Vibrator (state-change alerts) |
-| Theme | Custom dark theme with branded PostureGuard color palette |
+| Theme | Custom dark theme with branded UpRight color palette |
 | Build System | Gradle Kotlin DSL |
 
 ## Getting Started
@@ -98,7 +98,7 @@ cd posture_detect
 ./gradlew installDebug
 
 # Grant camera permission (first time only)
-adb shell pm grant com.example.postureguard android.permission.CAMERA
+adb shell pm grant com.example.upright android.permission.CAMERA
 ```
 
 Or open the project in Android Studio, sync Gradle, and hit **Run**.
@@ -114,9 +114,9 @@ Or open the project in Android Studio, sync Gradle, and hit **Run**.
 ## Project Structure
 
 ```
-app/src/main/java/com/example/postureguard/
+app/src/main/java/com/example/upright/
 ├── MainActivity.kt            # Compose UI with animated posture ring, skeleton overlay, session stats
-├── PostureGuardViewModel.kt   # ViewModel: sound effects, calibration, state machine, haptics, session tracking
+├── UpRightViewModel.kt   # ViewModel: sound effects, calibration, state machine, haptics, session tracking
 ├── PoseDetector.kt            # MediaPipe PoseLandmarker (LIVE_STREAM, GPU/CPU)
 ├── PostureLogic.kt            # Biomechanical analysis, calibration, state machine
 ├── OneEuroFilter.kt           # Adaptive temporal smoothing for landmarks
@@ -177,7 +177,7 @@ Reduces processing load by skipping 3 out of 4 frames, effectively lowering anal
 
 | Issue | Solution |
 |-------|----------|
-| App crashes on start | Grant camera permission in Settings → Apps → PostureGuard |
+| App crashes on start | Grant camera permission in Settings → Apps → UpRight |
 | 3D shows OFF | Ensure good front-facing lighting; hips/shoulders need visibility > 0.3 |
 | No sound alerts | Check media volume is turned up |
 | High battery drain | Enable Eco mode to reduce display and processing load |

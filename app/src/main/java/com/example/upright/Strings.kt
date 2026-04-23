@@ -1,7 +1,7 @@
-package com.example.postureguard
+package com.example.upright
 
 data class S(
-    val appName: String = "PostureGuard",
+    val appName: String = "UpRight",
 
     // Permission
     val realtimeMonitor: String,
@@ -188,7 +188,7 @@ val StringsZh = S(
     ecoModeDesc2 = "关闭预览画面，降低检测频率",
     about = "关于",
     version = "版本",
-    aboutDesc = "PostureGuard 使用设备端 AI 进行实时坐姿监测，无需网络连接。",
+    aboutDesc = "UpRight 使用设备端 AI 进行实时坐姿监测，无需网络连接。",
     cancel = "取消",
     back = "返回",
     onbTitle1 = "实时坐姿监测助手",
@@ -288,7 +288,7 @@ val StringsEn = S(
     ecoModeDesc2 = "Turn off preview, reduce detection frequency",
     about = "About",
     version = "Version",
-    aboutDesc = "PostureGuard uses on-device AI for real-time posture monitoring. No internet required.",
+    aboutDesc = "UpRight uses on-device AI for real-time posture monitoring. No internet required.",
     cancel = "Cancel",
     back = "Back",
     onbTitle1 = "Real-time Posture Monitor",

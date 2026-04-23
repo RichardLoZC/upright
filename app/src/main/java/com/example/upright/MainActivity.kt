@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import android.content.Context
 import android.content.res.Configuration
@@ -50,7 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.postureguard.ui.theme.*
+import com.example.upright.ui.theme.*
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import java.util.concurrent.Executors
@@ -64,15 +64,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContent {
-            PostureGuardTheme {
-                PostureGuardApp()
+            UpRightTheme {
+                UpRightApp()
             }
         }
     }
 }
 
 @Composable
-fun PostureGuardApp(vm: PostureGuardViewModel = viewModel()) {
+fun UpRightApp(vm: UpRightViewModel = viewModel()) {
     val uiState by vm.uiState.collectAsState()
     val context = LocalContext.current
     val s = stringsFor(uiState.settings.alertLanguage)
@@ -95,7 +95,7 @@ fun PostureGuardApp(vm: PostureGuardViewModel = viewModel()) {
 }
 
 @Composable
-private fun MainWithPermission(vm: PostureGuardViewModel) {
+private fun MainWithPermission(vm: UpRightViewModel) {
     val context = LocalContext.current
     val uiState by vm.uiState.collectAsState()
     val s = stringsFor(uiState.settings.alertLanguage)
@@ -145,7 +145,7 @@ private fun PermissionScreen(onRequest: () -> Unit, s: S) {
                 tint = PgGreen
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Text("PostureGuard", color = TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text("UpRight", color = TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Text(s.realtimeMonitor, color = TextSecondary, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(8.dp))
@@ -166,7 +166,7 @@ private fun PermissionScreen(onRequest: () -> Unit, s: S) {
 }
 
 @Composable
-fun CameraScreen(vm: PostureGuardViewModel) {
+fun CameraScreen(vm: UpRightViewModel) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by vm.uiState.collectAsState()
@@ -401,7 +401,7 @@ private fun SkeletonOverlay(landmarks: List<Landmark3D>) {
 }
 
 @Composable
-private fun TopBar(uiState: UiState, vm: PostureGuardViewModel, isLandscape: Boolean = false, s: S = StringsZh) {
+private fun TopBar(uiState: UiState, vm: UpRightViewModel, isLandscape: Boolean = false, s: S = StringsZh) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -430,12 +430,12 @@ private fun TopBar(uiState: UiState, vm: PostureGuardViewModel, isLandscape: Boo
             Spacer(modifier = Modifier.width(4.dp))
             Icon(
                 Icons.Default.Shield,
-                contentDescription = "PostureGuard",
+                contentDescription = "UpRight",
                 tint = PgGreen,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
-            Text("PostureGuard", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("UpRight", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -495,7 +495,7 @@ private fun PostureStatusBadge(state: PostureState, s: S = StringsZh) {
 }
 
 @Composable
-private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape: Boolean = false, s: S = StringsZh) {
+private fun BottomPanel(vm: UpRightViewModel, uiState: UiState, isLandscape: Boolean = false, s: S = StringsZh) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -822,7 +822,7 @@ private fun formatDuration(seconds: Long): String {
 }
 
 @Composable
-private fun ControlButtons(vm: PostureGuardViewModel, uiState: UiState, s: S = StringsZh) {
+private fun ControlButtons(vm: UpRightViewModel, uiState: UiState, s: S = StringsZh) {
     var showCalibDialog by remember { mutableStateOf(false) }
 
     if (showCalibDialog) {

@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -16,9 +16,9 @@ class PostureMonitorService : Service() {
     companion object {
         const val CHANNEL_ID = "posture_monitor"
         const val NOTIFICATION_ID = 1
-        const val ACTION_START = "com.example.postureguard.START_MONITOR"
-        const val ACTION_STOP = "com.example.postureguard.STOP_MONITOR"
-        const val ACTION_UPDATE = "com.example.postureguard.UPDATE_STATUS"
+        const val ACTION_START = "com.example.upright.START_MONITOR"
+        const val ACTION_STOP = "com.example.upright.STOP_MONITOR"
+        const val ACTION_UPDATE = "com.example.upright.UPDATE_STATUS"
         const val EXTRA_STATE = "posture_state"
         const val EXTRA_LANG = "alert_language"
     }
@@ -88,7 +88,7 @@ class PostureMonitorService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("PostureGuard")
+            .setContentTitle("UpRight")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)

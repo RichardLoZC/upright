@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import org.junit.Assert.*
 import org.junit.Test

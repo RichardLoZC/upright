@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -14,7 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import com.example.postureguard.ui.theme.PgOrange
+import com.example.upright.ui.theme.PgOrange
 
 @Composable
 fun PostureGuidanceArrow(state: PostureState) {

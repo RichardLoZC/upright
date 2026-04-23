@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import android.app.Application
 import android.content.Intent
@@ -51,7 +51,7 @@ data class UiState(
     val currentStreak: Int = 0
 )
 
-class PostureGuardViewModel(application: Application) : AndroidViewModel(application) {
+class UpRightViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -466,7 +466,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
                     )
                 )
             } catch (e: Exception) {
-                Log.e("PostureGuard", "Failed to save session", e)
+                Log.e("UpRight", "Failed to save session", e)
             }
         }
     }

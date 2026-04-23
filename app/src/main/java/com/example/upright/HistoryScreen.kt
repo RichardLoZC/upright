@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -20,12 +20,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.postureguard.ui.theme.*
+import com.example.upright.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 @Composable
-fun HistoryScreen(vm: PostureGuardViewModel) {
+fun HistoryScreen(vm: UpRightViewModel) {
     val uiState by vm.uiState.collectAsState()
     val s = stringsFor(uiState.settings.alertLanguage)
 

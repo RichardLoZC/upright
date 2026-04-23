@@ -1,4 +1,4 @@
-package com.example.postureguard
+package com.example.upright
 
 import kotlin.math.sqrt
 
