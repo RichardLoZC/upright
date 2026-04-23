@@ -328,7 +328,8 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun processFrame(imageProxy: ImageProxy) {
-        if (_uiState.value.isPaused) {
+        val state = _uiState.value
+        if (state.isPaused) {
             imageProxy.close()
             return
         }
@@ -341,9 +342,9 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
             }
         }
 
-        val calibration = _uiState.value.calibration
-        val isCalibrating = _uiState.value.isCalibrating
-        val sensitivity = _uiState.value.settings.sensitivityMultiplier
+        val calibration = state.calibration
+        val isCalibrating = state.isCalibrating
+        val sensitivity = state.settings.sensitivityMultiplier
 
         frameProcessor.processImage(imageProxy, calibration, sensitivity) { diag, landmarks, raw2d, raw3d ->
             if (isCalibrating && landmarks != null) {
