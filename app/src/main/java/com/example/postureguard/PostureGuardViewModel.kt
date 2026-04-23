@@ -9,7 +9,6 @@ import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.camera.core.ImageProxy
 import androidx.core.content.getSystemService
@@ -25,7 +24,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import kotlin.random.Random
 
 enum class Screen { ONBOARDING, MAIN, SETTINGS, HISTORY }
 
@@ -52,7 +50,7 @@ data class UiState(
     val currentStreak: Int = 0
 )
 
-class PostureGuardViewModel(application: Application) : AndroidViewModel(application), TextToSpeech.OnInitListener {
+class PostureGuardViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -62,8 +60,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     private val frameProcessor = FrameProcessor(poseDetector, smoother)
     private val stateMachine = PostureStateMachine()
 
-    private var tts: TextToSpeech? = null
-    private var isTtsReady = false
+    private val soundEffects = SoundEffects(application)
     private var lastAlertTime = 0L
 
     private val calibSamples = java.util.concurrent.CopyOnWriteArrayList<Pair<List<Landmark3D>, List<Landmark3D>?>>()
@@ -89,33 +86,10 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     private val noPersonStartMs = java.util.concurrent.atomic.AtomicLong(0)
     private val noPersonActive = java.util.concurrent.atomic.AtomicBoolean(false)
 
-    private val forwardHeadMessagesZh = listOf(
-        "头太靠前了，收下巴", "注意头部前倾", "把头收回来一些", "下巴微收，头部后移"
-    )
-    private val hunchbackMessagesZh = listOf(
-        "驼背了，挺直背部", "挺胸，展开肩膀", "背挺直一些", "肩膀向后打开"
-    )
-    private val tiltLeftMessagesZh = listOf("头向左歪了", "头部偏左了")
-    private val tiltRightMessagesZh = listOf("头向右歪了", "头部偏右了")
-    private val slouchMessagesZh = listOf("肩膀不平，坐直一点", "左右肩膀不平衡")
-
-    private val forwardHeadMessagesEn = listOf(
-        "Head too far forward, tuck your chin", "Watch your head position",
-        "Pull your head back", "Tuck chin, move head back"
-    )
-    private val hunchbackMessagesEn = listOf(
-        "Stop slouching, sit up straight", "Chest up, shoulders back",
-        "Straighten your back", "Open your shoulders"
-    )
-    private val tiltLeftMessagesEn = listOf("Head tilting left", "Your head is leaning left")
-    private val tiltRightMessagesEn = listOf("Head tilting right", "Your head is leaning right")
-    private val slouchMessagesEn = listOf("Uneven shoulders, sit up straight", "Balance your shoulders")
-
     val ecoEnabled get() = ecoModeFlag
     val ecoSkipCounter get() = ecoFrameSkip
 
     init {
-        initTts(application)
         viewModelScope.launch {
             val settings = settingsStore.load()
             val calibration = calibrationStore.load()
@@ -125,40 +99,6 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
                 calibration = calibration,
                 currentScreen = screen
             )
-        }
-    }
-
-    private var ttsRetryCount = 0
-
-    private fun initTts(app: Application) {
-        tts = TextToSpeech(app, this)
-    }
-
-    override fun onInit(status: Int) {
-        Log.d("PostureGuard", "TTS onInit: status=$status")
-        if (status == TextToSpeech.SUCCESS) {
-            val locale = when (_uiState.value.settings.alertLanguage) {
-                AlertLanguage.ZH -> Locale.CHINA
-                AlertLanguage.EN -> Locale.US
-            }
-            val result = tts?.setLanguage(locale) ?: TextToSpeech.ERROR
-            Log.d("PostureGuard", "TTS setLanguage result=$result")
-            isTtsReady = true
-        } else if (ttsRetryCount < 3) {
-            ttsRetryCount++
-            Log.e("PostureGuard", "TTS init failed ($status), retry $ttsRetryCount/3 in 3s...")
-            viewModelScope.launch {
-                delay(3000)
-                tts?.shutdown()
-                tts = TextToSpeech(getApplication(), this@PostureGuardViewModel)
-            }
-        } else {
-            Log.e("PostureGuard", "TTS failed after 3 retries, trying default engine")
-            viewModelScope.launch {
-                delay(2000)
-                tts?.shutdown()
-                tts = TextToSpeech(getApplication(), this@PostureGuardViewModel, "com.google.android.tts")
-            }
         }
     }
 
@@ -308,13 +248,6 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
             _uiState.value = _uiState.value.copy(
                 settings = _uiState.value.settings.copy(alertLanguage = language)
             )
-            if (isTtsReady) {
-                val locale = when (language) {
-                    AlertLanguage.ZH -> Locale.CHINA
-                    AlertLanguage.EN -> Locale.US
-                }
-                tts?.setLanguage(locale)
-            }
         }
     }
 
@@ -356,7 +289,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
                 vibrateOnStateChange(debounced)
             }
             if (_uiState.value.settings.soundEnabled) {
-                speakAlert(debounced)
+                playAlertSound(debounced)
             }
 
             // NO_PERSON timeout for pause suggestion
@@ -397,8 +330,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
         val useEn = _uiState.value.settings.alertLanguage == AlertLanguage.EN
         val stateText = when (state) {
             PostureState.GOOD -> if (useEn) "Good posture" else "坐姿良好"
-            PostureState.BAD_TILT_LEFT -> if (useEn) "Head tilting left" else "头部向左歪斜"
-            PostureState.BAD_TILT_RIGHT -> if (useEn) "Head tilting right" else "头部向右歪斜"
+            PostureState.BAD_TILT -> if (useEn) "Head tilting" else "头部侧歪"
             PostureState.BAD_SLOUCH -> if (useEn) "Uneven shoulders" else "肩膀不平"
             PostureState.BAD_FORWARD_HEAD -> if (useEn) "Forward head" else "头部前倾"
             PostureState.BAD_HUNCHBACK -> if (useEn) "Slouching" else "驼背"
@@ -438,10 +370,11 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
 
     private fun vibrateOnStateChange(state: PostureState) {
         if (state == lastVibratedState) return
-        lastVibratedState = state
-
+        val wasBad = lastVibratedState != PostureState.GOOD && lastVibratedState != PostureState.NO_PERSON
         val isBad = state != PostureState.GOOD && state != PostureState.NO_PERSON
-        if (isBad) {
+
+        // Only vibrate when transitioning TO bad (not between bad states)
+        if (isBad && !wasBad) {
             try {
                 vibrator?.let {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -455,28 +388,39 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
                 // Some devices don't support vibration
             }
         }
+        lastVibratedState = state
     }
 
-    private fun speakAlert(state: PostureState) {
-        val now = System.currentTimeMillis()
-        val interval = _uiState.value.settings.alertIntervalSeconds * 1000L
-        if (now - lastAlertTime < interval) return
+    private var lastSoundState = PostureState.NO_PERSON
+    private var badPostureStartMs = 0L
 
-        if (isTtsReady && tts != null) {
-            val useEn = _uiState.value.settings.alertLanguage == AlertLanguage.EN
-            val message = when (state) {
-                PostureState.BAD_TILT_LEFT -> if (useEn) tiltLeftMessagesEn.random() else tiltLeftMessagesZh.random()
-                PostureState.BAD_TILT_RIGHT -> if (useEn) tiltRightMessagesEn.random() else tiltRightMessagesZh.random()
-                PostureState.BAD_SLOUCH -> if (useEn) slouchMessagesEn.random() else slouchMessagesZh.random()
-                PostureState.BAD_FORWARD_HEAD -> if (useEn) forwardHeadMessagesEn.random() else forwardHeadMessagesZh.random()
-                PostureState.BAD_HUNCHBACK -> if (useEn) hunchbackMessagesEn.random() else hunchbackMessagesZh.random()
-                else -> null
-            }
-            if (message != null) {
-                tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
-                lastAlertTime = now
+    private fun playAlertSound(state: PostureState) {
+        val isBad = state != PostureState.GOOD && state != PostureState.NO_PERSON
+
+        // Track when bad posture starts
+        if (isBad && lastSoundState == PostureState.GOOD) {
+            badPostureStartMs = System.currentTimeMillis()
+        }
+
+        // Bird chirp: only once on state change to GOOD (from bad/NO_PERSON)
+        if (state == PostureState.GOOD && lastSoundState != PostureState.GOOD) {
+            soundEffects.playChirp()
+        }
+
+        // Crow caw: only after bad posture persists for 1 minute, then at alert interval
+        if (isBad) {
+            val now = System.currentTimeMillis()
+            val badDuration = now - badPostureStartMs
+            if (badDuration >= 60_000L) {
+                val interval = _uiState.value.settings.alertIntervalSeconds * 1000L
+                if (now - lastAlertTime >= interval) {
+                    soundEffects.playCaw()
+                    lastAlertTime = now
+                }
             }
         }
+
+        lastSoundState = state
     }
 
     private var sessionSaved = false
@@ -541,7 +485,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun stopTts() {
-        tts?.stop()
+        // Kept for compatibility, no-op since TTS was removed
     }
 
     fun startForegroundMonitor() {
@@ -570,8 +514,6 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
         pauseJob?.cancel()
         saveCurrentSession()
         poseDetector.close()
-        tts?.stop()
-        tts?.shutdown()
     }
 }
 

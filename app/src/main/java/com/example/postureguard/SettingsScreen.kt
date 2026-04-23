@@ -82,16 +82,24 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                     selected = settings.alertIntervalSeconds,
                     onSelect = { vm.updateAlertInterval(it) }
                 )
+                Text(
+                    "不良姿势持续 1 分钟后按此间隔播放提示音",
+                    color = TextMuted,
+                    fontSize = 12.sp
+                )
             }
 
             // Sound
-            SettingsSection("语音提醒") {
+            SettingsSection("提示音") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("语音播报提醒", color = TextSecondary, fontSize = 14.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("声音提醒", color = TextSecondary, fontSize = 14.sp)
+                        Text("坐姿异常时播放乌鸦叫声提醒", color = TextMuted, fontSize = 12.sp)
+                    }
                     Switch(
                         checked = settings.soundEnabled,
                         onCheckedChange = { vm.updateSoundEnabled(it) },

@@ -27,7 +27,7 @@
 - **2D + 3D 融合检测** — 2D 归一化坐标检测歪头和肩膀不对称；3D 世界坐标检测探颈和驼背
 - **用户校准** — 3 秒采集个人基准姿势，个性化设定检测阈值，校准数据跨会话持久保存
 - **骨骼叠加** — 调试模式下在摄像头画面上实时显示检测到的关节点和骨骼连线
-- **语音提醒** — 中文 TTS 多样化语音提醒纠正坐姿（5 秒冷却，避免频繁打扰）
+- **音效提醒** — 合成鸟鸣（姿势纠正时）和乌鸦叫（不良姿势持续 >1 分钟），可配置提醒间隔
 - **振动反馈** — 姿势状态变化时振动提醒，即时触觉感知
 - **会话统计** — 实时追踪良好/不良坐姿时长，显示百分比得分
 - **动画姿态指示器** — 带脉冲动画的彩色圆环，一目了然显示坐姿状态
@@ -53,14 +53,14 @@
                                          ↓
                                     状态机 (防抖)
                                          ↓
-                                  TTS 语音提醒 (异常时)
+                                  音效提醒 (不良持续 >1 分钟)
 ```
 
 ### 检测类型
 
 | 坐姿状态 | 检测方式 | 检测指标 |
 |----------|---------|---------|
-| 头部左倾/右倾 | 2D 耳朵 Y 坐标差 | 耳朵偏离基准线 |
+| 头部歪斜 | 2D 耳朵 Y 坐标差 | 耳朵偏离基准线 |
 | 肩膀不平 | 2D 肩膀 Y 坐标差 | 肩膀水平偏差 |
 | 探颈（龟壳颈） | 3D CVA 颅椎角 | CVA < 48°（或偏离基准 > 10°） |
 | 驼背 | 3D 躯干倾角 | 躯干角 > 20°（或偏离基准 > 10°） |
@@ -74,7 +74,7 @@
 | 相机 | CameraX (Preview + ImageAnalysis) |
 | 姿态检测 | Google MediaPipe Pose Landmarker (Full 模型, GPU/CPU 自动切换) |
 | 信号平滑 | 1 Euro Filter (自适应去抖) |
-| 语音输出 | Android TextToSpeech (中文，多样化消息) |
+| 音效输出 | 合成鸟鸣 / 乌鸦叫声 (AudioTrack PCM) |
 | 振动 | Android Vibrator (状态变化提醒) |
 | 主题 | 自定义暗色主题，PostureGuard 品牌配色 |
 | 构建系统 | Gradle Kotlin DSL |
@@ -116,7 +116,7 @@ adb shell pm grant com.example.postureguard android.permission.CAMERA
 ```
 app/src/main/java/com/example/postureguard/
 ├── MainActivity.kt            # Compose UI，含动画姿态环、骨骼叠加、会话统计
-├── PostureGuardViewModel.kt   # ViewModel: TTS、校准、状态机、振动、会话追踪
+├── PostureGuardViewModel.kt   # ViewModel: 音效、校准、状态机、振动、会话追踪
 ├── PoseDetector.kt            # MediaPipe 姿态检测封装 (实时流, GPU/CPU)
 ├── PostureLogic.kt            # 生物力学分析、校准、状态机
 ├── OneEuroFilter.kt           # 关键点自适应时序平滑滤波
@@ -179,7 +179,7 @@ app/src/main/assets/
 |------|---------|
 | 启动闪退 | 在 设置 → 应用 → PostureGuard 中授予相机权限 |
 | 3D 显示 OFF | 确保正面光线充足；肩膀/髋部可见度需 > 0.3 |
-| 语音无声音 | 检查是否安装了 Google TTS 引擎，并调大音量 |
+| 无提示音 | 检查媒体音量是否已调大 |
 | 耗电太快 | 开启省电模式，降低屏幕和处理负载 |
 | 频繁误报 | 保持正确坐姿后点击"校准"重新采集基准 |
 | 检测过于敏感 | 在 `PostureLogic.kt` 中调大偏差阈值 |

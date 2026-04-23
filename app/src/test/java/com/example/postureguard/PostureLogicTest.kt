@@ -28,17 +28,17 @@ class PostureLogic2DTest {
     }
 
     @Test
-    fun `head tilt left detected`() {
+    fun `head tilt detected when left ear lower`() {
         val lm = makeLandmarks(leftEar = lm(0.4, 0.4), rightEar = lm(0.6, 0.3))
         val result = PostureLogic.analyzeWithDiagnosis(lm, null, 30.0)
-        assertEquals(PostureState.BAD_TILT_LEFT, result.state)
+        assertEquals(PostureState.BAD_TILT, result.state)
     }
 
     @Test
-    fun `head tilt right detected`() {
+    fun `head tilt detected when right ear lower`() {
         val lm = makeLandmarks(leftEar = lm(0.4, 0.3), rightEar = lm(0.6, 0.4))
         val result = PostureLogic.analyzeWithDiagnosis(lm, null, 30.0)
-        assertEquals(PostureState.BAD_TILT_RIGHT, result.state)
+        assertEquals(PostureState.BAD_TILT, result.state)
     }
 
     @Test
@@ -75,7 +75,7 @@ class PostureLogic2DTest {
         // Tilt exceeding deviation → BAD
         val badLm = makeLandmarks(leftEar = lm(0.4, 0.36), rightEar = lm(0.6, 0.3))
         val badResult = PostureLogic.analyzeWithDiagnosis(badLm, null, 30.0, calib)
-        assertEquals(PostureState.BAD_TILT_LEFT, badResult.state)
+        assertEquals(PostureState.BAD_TILT, badResult.state)
     }
 
     @Test
@@ -94,7 +94,7 @@ class PostureLogic2DTest {
         // but HIGH threshold = 0.05 * 0.7 = 0.035 → 0.04 > 0.035 so BAD
         val lm = makeLandmarks(leftEar = lm(0.4, 0.34), rightEar = lm(0.6, 0.3))
         val highResult = PostureLogic.analyzeWithDiagnosis(lm, null, 30.0, null, 0.7)
-        assertEquals(PostureState.BAD_TILT_LEFT, highResult.state)
+        assertEquals(PostureState.BAD_TILT, highResult.state)
     }
 }
 

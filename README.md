@@ -27,7 +27,7 @@
 - **2D + 3D fusion** — Head tilt and shoulder asymmetry from normalized 2D landmarks; forward head and hunchback from 3D world coordinates
 - **User calibration** — 3-second baseline capture personalizes thresholds to your body and seating position, persisted across sessions
 - **Skeleton overlay** — Debug mode shows detected keypoints and bone connections on the live camera preview
-- **Voice alerts** — Chinese TTS with varied messages reminds you to correct posture (5-second cooldown to avoid spam)
+- **Sound alerts** — Synthesized bird chirp (posture corrected) and crow caw (persistent bad posture >1 min) with configurable interval
 - **Haptic feedback** — Vibration on posture state changes for immediate tactile alerts
 - **Session statistics** — Real-time tracking of good/bad posture duration with percentage score
 - **Animated posture indicator** — Color-coded ring with pulse animation for posture status at a glance
@@ -53,14 +53,14 @@ Front Camera → CameraX ImageAnalysis → MediaPipe Pose Landmarker (Full)
                                                ↓
                                      State Machine (debounce)
                                                ↓
-                                      TTS Voice Alert (if bad)
+                                      Sound Alert (crow caw if bad >1 min)
 ```
 
 ### Detection Types
 
 | Posture State | Detection Method | Clinical Metric |
 |---------------|-----------------|-----------------|
-| Head Tilt Left/Right | 2D ear Y difference | Ear deviation from baseline |
+| Head Tilt | 2D ear Y difference | Ear deviation from baseline |
 | Shoulder Asymmetry | 2D shoulder Y difference | Shoulder level deviation |
 | Forward Head | 3D CVA (Craniovertebral Angle) | CVA < 48° (or deviation > 10° from baseline) |
 | Hunchback | 3D Trunk Inclination Angle | Trunk > 20° from vertical (or deviation > 10°) |
@@ -74,7 +74,7 @@ Front Camera → CameraX ImageAnalysis → MediaPipe Pose Landmarker (Full)
 | Camera | CameraX (Preview + ImageAnalysis) |
 | Pose Detection | Google MediaPipe Pose Landmarker (Full model, GPU/CPU fallback) |
 | Smoothing | 1 Euro Filter (adaptive jitter reduction) |
-| Voice Output | Android TextToSpeech (Chinese) with varied messages |
+| Sound Effects | Synthesized bird chirp / crow caw via AudioTrack PCM |
 | Haptic | Android Vibrator (state-change alerts) |
 | Theme | Custom dark theme with branded PostureGuard color palette |
 | Build System | Gradle Kotlin DSL |
@@ -116,7 +116,7 @@ Or open the project in Android Studio, sync Gradle, and hit **Run**.
 ```
 app/src/main/java/com/example/postureguard/
 ├── MainActivity.kt            # Compose UI with animated posture ring, skeleton overlay, session stats
-├── PostureGuardViewModel.kt   # ViewModel: TTS, calibration, state machine, haptics, session tracking
+├── PostureGuardViewModel.kt   # ViewModel: sound effects, calibration, state machine, haptics, session tracking
 ├── PoseDetector.kt            # MediaPipe PoseLandmarker (LIVE_STREAM, GPU/CPU)
 ├── PostureLogic.kt            # Biomechanical analysis, calibration, state machine
 ├── OneEuroFilter.kt           # Adaptive temporal smoothing for landmarks
@@ -179,7 +179,7 @@ Reduces processing load by skipping 3 out of 4 frames, effectively lowering anal
 |-------|----------|
 | App crashes on start | Grant camera permission in Settings → Apps → PostureGuard |
 | 3D shows OFF | Ensure good front-facing lighting; hips/shoulders need visibility > 0.3 |
-| TTS is silent | Check that Google TTS engine is installed and volume is up |
+| No sound alerts | Check media volume is turned up |
 | High battery drain | Enable Eco mode to reduce display and processing load |
 | Frequent false alerts | Run calibration while sitting with good posture |
 | Detection too sensitive | Increase deviation thresholds in `PostureLogic.kt` |

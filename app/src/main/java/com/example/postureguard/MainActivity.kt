@@ -1,8 +1,11 @@
 package com.example.postureguard
 
+import android.content.Context
+import android.content.res.Configuration
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.Surface
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -37,9 +40,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -164,9 +169,24 @@ fun CameraScreen(vm: PostureGuardViewModel) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by vm.uiState.collectAsState()
+    val config = LocalConfiguration.current
+    val isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     var cameraBound by remember { mutableStateOf(false) }
+    var imageAnalysisRef by remember { mutableStateOf<ImageAnalysis?>(null) }
+
+    // Compute current display rotation, recomputed when orientation changes
+    val displayRotation = remember(config.orientation) {
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        @Suppress("DEPRECATION")
+        wm.defaultDisplay.rotation
+    }
+
+    // Update camera target rotation when device rotates
+    LaunchedEffect(displayRotation) {
+        imageAnalysisRef?.targetRotation = displayRotation
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -200,13 +220,17 @@ fun CameraScreen(vm: PostureGuardViewModel) {
                             val cameraProvider = cameraProviderFuture.get()
                             if (cameraBound) return@post
 
-                            val preview = Preview.Builder().build()
+                            val preview = Preview.Builder()
+                                .setTargetRotation(displayRotation)
+                                .build()
                             preview.setSurfaceProvider(surfaceProvider)
 
                             val imageAnalysis = ImageAnalysis.Builder()
                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                                .setTargetRotation(displayRotation)
                                 .build()
+                            imageAnalysisRef = imageAnalysis
 
                             imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
                                 vm.processFrame(imageProxy)
@@ -251,10 +275,14 @@ fun CameraScreen(vm: PostureGuardViewModel) {
         }
 
         // Top bar
-        TopBar(uiState = uiState, vm = vm)
+        Box(modifier = Modifier.align(Alignment.TopStart)) {
+            TopBar(uiState = uiState, vm = vm, isLandscape = isLandscape)
+        }
 
         // Bottom panel
-        BottomPanel(vm = vm, uiState = uiState)
+        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            BottomPanel(vm = vm, uiState = uiState, isLandscape = isLandscape)
+        }
 
         // NO_PERSON pause suggestion
         if (uiState.showPauseSuggestion) {
@@ -371,7 +399,7 @@ private fun SkeletonOverlay(landmarks: List<Landmark3D>) {
 }
 
 @Composable
-private fun TopBar(uiState: UiState, vm: PostureGuardViewModel) {
+private fun TopBar(uiState: UiState, vm: PostureGuardViewModel, isLandscape: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -381,7 +409,7 @@ private fun TopBar(uiState: UiState, vm: PostureGuardViewModel) {
                 )
             )
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = if (isLandscape) 6.dp else 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -465,7 +493,7 @@ private fun PostureStatusBadge(state: PostureState) {
 }
 
 @Composable
-private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState) {
+private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape: Boolean = false) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -475,21 +503,43 @@ private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState) {
                 )
             )
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = if (isLandscape) 4.dp else 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Posture indicator ring
-        PostureRing(state = uiState.currentPosture)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // State text
-        PostureStateText(state = uiState.currentPosture)
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Debug info
-        if (uiState.showDebug && uiState.diagnosis != null) {
-            DebugInfoBadge(diagnosis = uiState.diagnosis!!)
+        if (isLandscape) {
+            // Compact landscape layout: ring + text side by side
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                PostureRing(state = uiState.currentPosture, ringSize = 48.dp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(horizontalAlignment = Alignment.Start) {
+                    PostureStateText(state = uiState.currentPosture, compact = true)
+                    if (uiState.showDebug && uiState.diagnosis != null) {
+                        DebugInfoBadge(diagnosis = uiState.diagnosis)
+                    }
+                }
+                if (uiState.sessionGoodDuration > 0 || uiState.sessionBadDuration > 0) {
+                    Spacer(modifier = Modifier.width(12.dp))
+                    SessionStatsRow(uiState = uiState, compact = true)
+                }
+            }
+        } else {
+            // Portrait layout (original)
+            PostureRing(state = uiState.currentPosture)
+            Spacer(modifier = Modifier.height(8.dp))
+            PostureStateText(state = uiState.currentPosture)
             Spacer(modifier = Modifier.height(4.dp))
+            if (uiState.showDebug && uiState.diagnosis != null) {
+                DebugInfoBadge(diagnosis = uiState.diagnosis)
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            if (uiState.sessionGoodDuration > 0 || uiState.sessionBadDuration > 0) {
+                SessionStatsRow(uiState = uiState)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
 
         // Calibration indicator
@@ -499,13 +549,7 @@ private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState) {
             CalibratedBadge()
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Session stats
-        if (uiState.sessionGoodDuration > 0 || uiState.sessionBadDuration > 0) {
-            SessionStatsRow(uiState = uiState)
-            Spacer(modifier = Modifier.height(8.dp))
-        }
+        Spacer(modifier = Modifier.height(if (isLandscape) 2.dp else 8.dp))
 
         // Control buttons
         ControlButtons(vm = vm, uiState = uiState)
@@ -513,7 +557,7 @@ private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState) {
 }
 
 @Composable
-private fun PostureRing(state: PostureState) {
+private fun PostureRing(state: PostureState, ringSize: Dp = 80.dp) {
     val color by animateColorAsState(
         targetValue = when (state) {
             PostureState.GOOD -> PgGreen
@@ -537,7 +581,7 @@ private fun PostureRing(state: PostureState) {
         label = "pulseAlpha"
     )
 
-    Canvas(modifier = Modifier.size(80.dp)) {
+    Canvas(modifier = Modifier.size(ringSize)) {
         val strokeWidth = 6.dp.toPx()
         val diameter = min(size.width, size.height) - strokeWidth
         val topLeft = Offset((size.width - diameter) / 2, (size.height - diameter) / 2)
@@ -578,11 +622,10 @@ private fun PostureRing(state: PostureState) {
 }
 
 @Composable
-private fun PostureStateText(state: PostureState) {
+private fun PostureStateText(state: PostureState, compact: Boolean = false) {
     val text = when (state) {
         PostureState.GOOD -> "坐姿良好"
-        PostureState.BAD_TILT_LEFT -> "头部向左歪斜"
-        PostureState.BAD_TILT_RIGHT -> "头部向右歪斜"
+        PostureState.BAD_TILT -> "头部侧歪"
         PostureState.BAD_SLOUCH -> "肩膀不平"
         PostureState.BAD_FORWARD_HEAD -> "头部前倾"
         PostureState.BAD_HUNCHBACK -> "驼背"
@@ -597,8 +640,8 @@ private fun PostureStateText(state: PostureState) {
         animationSpec = tween(400),
         label = "stateTextColor"
     )
-    Text(text, color = color, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-    if (state == PostureState.NO_PERSON) {
+    Text(text, color = color, fontSize = if (compact) 14.sp else 18.sp, fontWeight = FontWeight.Bold)
+    if (!compact && state == PostureState.NO_PERSON) {
         Text("请坐在摄像头前方", color = TextMuted, fontSize = 13.sp)
     }
 }
@@ -664,9 +707,9 @@ private fun CalibratedBadge() {
 }
 
 @Composable
-private fun SessionStatsRow(uiState: UiState) {
+private fun SessionStatsRow(uiState: UiState, compact: Boolean = false) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         StatChip(

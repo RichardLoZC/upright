@@ -13,8 +13,7 @@ data class Landmark3D(
 
 enum class PostureState {
     GOOD,
-    BAD_TILT_LEFT,
-    BAD_TILT_RIGHT,
+    BAD_TILT,
     BAD_SLOUCH,
     BAD_FORWARD_HEAD,
     BAD_HUNCHBACK,
@@ -183,14 +182,11 @@ object PostureLogic {
 
         if (calibration != null) {
             val earDeviation = earDiffY - calibration.earDiffY
-            // Front camera with mirror: left ear lower (y↑) = user tilting left
-            if (earDeviation > TILT_DEVIATION * sensitivityMultiplier) return PostureState.BAD_TILT_LEFT
-            if (earDeviation < -TILT_DEVIATION * sensitivityMultiplier) return PostureState.BAD_TILT_RIGHT
+            if (abs(earDeviation) > TILT_DEVIATION * sensitivityMultiplier) return PostureState.BAD_TILT
             val shoulderDeviation = shoulderDiffY - calibration.shoulderDiffY
             if (shoulderDeviation > SHOULDER_DEVIATION * sensitivityMultiplier) return PostureState.BAD_SLOUCH
         } else {
-            if (earDiffY > TILT_THRESHOLD * sensitivityMultiplier) return PostureState.BAD_TILT_LEFT
-            if (earDiffY < -TILT_THRESHOLD * sensitivityMultiplier) return PostureState.BAD_TILT_RIGHT
+            if (abs(earDiffY) > TILT_THRESHOLD * sensitivityMultiplier) return PostureState.BAD_TILT
             if (shoulderDiffY > SHOULDER_LEVEL_THRESHOLD * sensitivityMultiplier) return PostureState.BAD_SLOUCH
         }
         return PostureState.GOOD

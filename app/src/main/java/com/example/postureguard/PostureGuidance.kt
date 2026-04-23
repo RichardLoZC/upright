@@ -47,19 +47,11 @@ fun PostureGuidanceArrow(state: PostureState) {
         val color = PgOrange.copy(alpha = pulse)
 
         when (state) {
-            PostureState.BAD_TILT_LEFT -> {
-                // Arrow pointing right: head should move right
+            PostureState.BAD_TILT -> {
+                // Vertical arrow: straighten head
                 drawArrow(
-                    start = Offset(cx - arrowLen + bounceOffset, cy),
-                    end = Offset(cx + arrowLen + bounceOffset, cy),
-                    color = color
-                )
-            }
-            PostureState.BAD_TILT_RIGHT -> {
-                // Arrow pointing left
-                drawArrow(
-                    start = Offset(cx + arrowLen - bounceOffset, cy),
-                    end = Offset(cx - arrowLen - bounceOffset, cy),
+                    start = Offset(cx, cy + arrowLen - bounceOffset),
+                    end = Offset(cx, cy - arrowLen - bounceOffset),
                     color = color
                 )
             }
