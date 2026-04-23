@@ -293,7 +293,13 @@ private fun WeeklyBarChart(summary: List<DailySummary>) {
 }
 
 private fun formatDuration(seconds: Long): String {
-    val m = seconds / 60
+    if (seconds <= 0) return "0s"
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
     val s = seconds % 60
-    return if (m > 0) "${m}m${s}s" else "${s}s"
+    return when {
+        h > 0 -> "${h}h${m}m"
+        m > 0 -> "${m}m${s}s"
+        else -> "${s}s"
+    }
 }
