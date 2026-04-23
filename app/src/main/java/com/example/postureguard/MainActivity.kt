@@ -599,6 +599,9 @@ private fun PostureStateText(state: PostureState) {
         label = "stateTextColor"
     )
     Text(text, color = color, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    if (state == PostureState.NO_PERSON) {
+        Text("请坐在摄像头前方", color = TextMuted, fontSize = 13.sp)
+    }
 }
 
 @Composable

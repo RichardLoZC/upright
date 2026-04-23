@@ -231,6 +231,9 @@ private fun TodayGoalRing(uiState: UiState) {
         }
     }
     Spacer(modifier = Modifier.height(4.dp))
+    if (metGoal && total > 0) {
+        Icon(Icons.Default.CheckCircle, contentDescription = "已达标", tint = PgGreen, modifier = Modifier.size(18.dp))
+    }
     Text(
         if (total > 0) "${(ratio * 100).toInt()}%" else "--",
         color = if (total > 0) color else TextMuted,
