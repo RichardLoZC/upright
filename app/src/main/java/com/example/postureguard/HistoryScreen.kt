@@ -237,19 +237,8 @@ private fun TodayGoalRing(uiState: UiState) {
 
 @Composable
 private fun WeeklyBarChart(summary: List<DailySummary>) {
-    if (summary.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("暂无数据", color = TextMuted, fontSize = 14.sp)
-        }
-        return
-    }
-
     val dayNames = listOf("一", "二", "三", "四", "五", "六", "日")
+    val hasData = summary.isNotEmpty()
 
     Row(
         modifier = Modifier
@@ -264,7 +253,7 @@ private fun WeeklyBarChart(summary: List<DailySummary>) {
             val bad = dayData?.badDurationSeconds ?: 0L
             val total = good + bad
             val ratio = if (total > 0) good.toFloat() / total else 0f
-            val barColor = if (ratio >= 0.8f) PgGreen else if (total > 0) PgRed else PgGray.copy(alpha = 0.3f)
+            val barColor = if (!hasData) PgGray.copy(alpha = 0.2f) else if (ratio >= 0.8f) PgGreen else if (total > 0) PgRed else PgGray.copy(alpha = 0.3f)
             val barFraction = if (total > 0) maxOf(ratio, 0.05f) else 0.05f
 
             Column(

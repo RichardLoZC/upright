@@ -85,6 +85,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     private var lastUiUpdateTime = 0L
     private val uiUpdateIntervalMs = 33L
     private var pauseJob: Job? = null
+    private var calibrationJob: Job? = null
     private val noPersonStartMs = java.util.concurrent.atomic.AtomicLong(0)
     private val noPersonActive = java.util.concurrent.atomic.AtomicBoolean(false)
 
@@ -185,10 +186,19 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
         calibSamples.clear()
         _uiState.value = _uiState.value.copy(isCalibrating = true, calibCountdown = 3)
 
-        viewModelScope.launch {
+        calibrationJob = viewModelScope.launch {
             repeat(3) {
                 _uiState.value = _uiState.value.copy(calibCountdown = 3 - it)
                 delay(1000)
+                // Abort if person leaves during calibration
+                if (_uiState.value.currentPosture == PostureState.NO_PERSON) {
+                    _uiState.value = _uiState.value.copy(
+                        isCalibrating = false, calibCountdown = 0,
+                        calibrationSuccess = false
+                    )
+                    calibSamples.clear()
+                    return@launch
+                }
             }
             val profile = PostureLogic.calibrateFromSamples(calibSamples.toList())
             if (profile != null) {
@@ -296,11 +306,13 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
             _uiState.value = _uiState.value.copy(
                 settings = _uiState.value.settings.copy(alertLanguage = language)
             )
-            val locale = when (language) {
-                AlertLanguage.ZH -> Locale.CHINA
-                AlertLanguage.EN -> Locale.US
+            if (isTtsReady) {
+                val locale = when (language) {
+                    AlertLanguage.ZH -> Locale.CHINA
+                    AlertLanguage.EN -> Locale.US
+                }
+                tts?.setLanguage(locale)
             }
-            tts?.setLanguage(locale)
         }
     }
 
@@ -536,6 +548,8 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
 
     override fun onCleared() {
         super.onCleared()
+        calibrationJob?.cancel()
+        pauseJob?.cancel()
         saveCurrentSession()
         poseDetector.close()
         tts?.stop()
