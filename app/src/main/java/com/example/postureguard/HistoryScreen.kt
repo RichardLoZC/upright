@@ -243,9 +243,8 @@ private fun WeeklyBarChart(summary: List<DailySummary>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(140.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.Bottom
+            .height(120.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         for (i in 0 until 7) {
             val dayData = summary.getOrNull(i)
@@ -258,22 +257,24 @@ private fun WeeklyBarChart(summary: List<DailySummary>) {
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Bottom,
                 modifier = Modifier.weight(1f)
             ) {
-                Surface(
-                    modifier = Modifier
-                        .width(20.dp)
-                        .fillMaxHeight(barFraction)
-                        .padding(bottom = 20.dp),
-                    shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp),
-                    color = barColor
-                ) {}
+                // Chart area (100.dp) + label area (20.dp) = 120.dp
                 Box(
-                    modifier = Modifier.offset(y = (-20).dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp),
+                    contentAlignment = Alignment.BottomCenter
                 ) {
-                    Text(dayNames[i], color = TextMuted, fontSize = 12.sp)
+                    Surface(
+                        modifier = Modifier
+                            .width(20.dp)
+                            .height((100.dp * barFraction).coerceAtLeast(4.dp)),
+                        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp),
+                        color = barColor
+                    ) {}
                 }
+                Text(dayNames[i], color = TextMuted, fontSize = 12.sp)
             }
         }
     }

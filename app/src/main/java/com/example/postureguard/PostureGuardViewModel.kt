@@ -409,6 +409,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private fun updateSessionStats(newState: PostureState) {
+        if (_uiState.value.isPaused) return
         val now = System.currentTimeMillis()
         val elapsed = (now - lastStatsUpdateTime) / 1000
         if (elapsed > 0) {

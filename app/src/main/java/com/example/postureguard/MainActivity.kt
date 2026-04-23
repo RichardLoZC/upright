@@ -221,14 +221,11 @@ fun CameraScreen(vm: PostureGuardViewModel) {
             modifier = Modifier.fillMaxSize()
         )
 
-        // Eco mode overlay
-        if (uiState.isEcoMode) {
-            EcoModeOverlay()
-        }
-
-        // Pause overlay
+        // Overlay layer (pause takes priority over eco)
         if (uiState.isPaused) {
             PauseOverlay(remaining = uiState.pauseRemainingSeconds)
+        } else if (uiState.isEcoMode) {
+            EcoModeOverlay()
         }
 
         // Skeleton overlay
