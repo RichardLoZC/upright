@@ -1,0 +1,297 @@
+package com.example.postureguard
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.postureguard.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Locale
+
+@Composable
+fun HistoryScreen(vm: PostureGuardViewModel) {
+    val uiState by vm.uiState.collectAsState()
+
+    LaunchedEffect(Unit) { vm.loadHistoryData() }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SurfaceDark)
+    ) {
+        // Top bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { vm.navigateTo(Screen.MAIN) }) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = TextPrimary)
+            }
+            Text("历史记录", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Today's goal + Streak row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Today's goal progress
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = SurfaceCardLight,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("今日目标", color = TextSecondary, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TodayGoalRing(uiState)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("80% 良好坐姿", color = TextMuted, fontSize = 11.sp)
+                    }
+                }
+
+                // Streak badge
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = SurfaceCardLight,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("连续达标", color = TextSecondary, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Icon(
+                            Icons.Default.LocalFireDepartment,
+                            contentDescription = "连续达标天数",
+                            tint = PgOrange,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "${uiState.currentStreak} 天",
+                            color = PgOrange,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Weekly bar chart
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = SurfaceCardLight
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("近 7 天坐姿趋势", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    WeeklyBarChart(summary = uiState.weeklySummary)
+                }
+            }
+
+            // Today's sessions
+            if (uiState.todaySessions.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = SurfaceCardLight
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("今日记录", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        uiState.todaySessions.forEach { session ->
+                            val total = session.goodDurationSeconds + session.badDurationSeconds
+                            val ratio = if (total > 0) session.goodDurationSeconds.toFloat() / total else 0f
+                            val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "${sdf.format(session.startTime)} - ${sdf.format(session.endTime)}",
+                                    color = TextSecondary,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    "${formatDuration(session.goodDurationSeconds)} / ${formatDuration(total)}",
+                                    color = TextMuted,
+                                    fontSize = 12.sp
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (ratio > 0.8f) PgGreen.copy(alpha = 0.15f) else PgRed.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        "${(ratio * 100).toInt()}%",
+                                        color = if (ratio > 0.8f) PgGreen else PgRed,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = SurfaceCardLight
+                ) {
+                    Column(
+                        modifier = Modifier.padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.History, contentDescription = "暂无记录", tint = TextMuted, modifier = Modifier.size(40.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("今天还没有监测记录", color = TextMuted, fontSize = 14.sp)
+                        Text("开始监测后会自动保存数据", color = TextMuted.copy(alpha = 0.7f), fontSize = 12.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun TodayGoalRing(uiState: UiState) {
+    val good = uiState.sessionGoodDuration
+    val bad = uiState.sessionBadDuration
+    val total = good + bad
+    val ratio = if (total > 0) good.toFloat() / total else 0f
+    val metGoal = ratio >= 0.8f
+
+    val color = if (metGoal) PgGreen else PgRed
+
+    Canvas(modifier = Modifier.size(64.dp)) {
+        val strokeWidth = 6.dp.toPx()
+        val diameter = size.width - strokeWidth
+        val topLeft = Offset(strokeWidth / 2, strokeWidth / 2)
+
+        drawArc(
+            color = Color.White.copy(alpha = 0.1f),
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = Size(diameter, diameter),
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        )
+        if (total > 0) {
+            drawArc(
+                color = color,
+                startAngle = -90f,
+                sweepAngle = ratio * 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = Size(diameter, diameter),
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+        }
+    }
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        if (total > 0) "${(ratio * 100).toInt()}%" else "--",
+        color = if (total > 0) color else TextMuted,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Bold
+    )
+}
+
+@Composable
+private fun WeeklyBarChart(summary: List<DailySummary>) {
+    if (summary.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("暂无数据", color = TextMuted, fontSize = 14.sp)
+        }
+        return
+    }
+
+    val dayNames = listOf("一", "二", "三", "四", "五", "六", "日")
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        for (i in 0 until 7) {
+            val dayData = summary.getOrNull(i)
+            val good = dayData?.goodDurationSeconds ?: 0L
+            val bad = dayData?.badDurationSeconds ?: 0L
+            val total = good + bad
+            val ratio = if (total > 0) good.toFloat() / total else 0f
+            val barColor = if (ratio >= 0.8f) PgGreen else if (total > 0) PgRed else PgGray.copy(alpha = 0.3f)
+            val barFraction = if (total > 0) maxOf(ratio, 0.05f) else 0.05f
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier.weight(1f)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .width(20.dp)
+                        .fillMaxHeight(barFraction)
+                        .padding(bottom = 20.dp),
+                    shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp),
+                    color = barColor
+                ) {}
+                Box(
+                    modifier = Modifier.offset(y = (-20).dp)
+                ) {
+                    Text(dayNames[i], color = TextMuted, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+private fun formatDuration(seconds: Long): String {
+    val m = seconds / 60
+    val s = seconds % 60
+    return if (m > 0) "${m}m${s}s" else "${s}s"
+}

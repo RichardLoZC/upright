@@ -19,3 +19,13 @@
 -keep class com.example.postureguard.CalibrationProfile { *; }
 -keep class com.example.postureguard.BoneLengths { *; }
 -keep class com.example.postureguard.RotationMatrix { *; }
+
+# Room
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-dontwarn androidx.room.paging.**
+
+# Settings
+-keep class com.example.postureguard.SettingsProfile { *; }
+-keep class com.example.postureguard.SensitivityLevel { *; }
+-keep class com.example.postureguard.AlertLanguage { *; }

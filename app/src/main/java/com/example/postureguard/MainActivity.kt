@@ -3,6 +3,7 @@ package com.example.postureguard
 import android.Manifest
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -62,6 +63,29 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun PostureGuardApp(vm: PostureGuardViewModel = viewModel()) {
+    val uiState by vm.uiState.collectAsState()
+    val context = LocalContext.current
+
+    // Calibration result toast
+    LaunchedEffect(uiState.calibrationSuccess) {
+        when (uiState.calibrationSuccess) {
+            true -> Toast.makeText(context, "校准成功", Toast.LENGTH_SHORT).show()
+            false -> Toast.makeText(context, "校准失败，请确保坐在摄像头前方", Toast.LENGTH_LONG).show()
+            null -> {}
+        }
+        if (uiState.calibrationSuccess != null) vm.consumeCalibrationResult()
+    }
+
+    when (uiState.currentScreen) {
+        Screen.ONBOARDING -> OnboardingScreen(vm)
+        Screen.MAIN -> MainWithPermission(vm)
+        Screen.SETTINGS -> SettingsScreen(vm)
+        Screen.HISTORY -> HistoryScreen(vm)
+    }
+}
+
+@Composable
+private fun MainWithPermission(vm: PostureGuardViewModel) {
     var hasCameraPermission by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -97,7 +121,7 @@ private fun PermissionScreen(onRequest: () -> Unit) {
         ) {
             Icon(
                 Icons.Default.VerifiedUser,
-                contentDescription = null,
+                contentDescription = "应用图标",
                 modifier = Modifier.size(72.dp),
                 tint = PgGreen
             )
@@ -109,17 +133,9 @@ private fun PermissionScreen(onRequest: () -> Unit) {
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "实时坐姿监测",
-                color = TextSecondary,
-                fontSize = 16.sp
-            )
+            Text("实时坐姿监测", color = TextSecondary, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "需要相机权限来分析您的坐姿",
-                color = TextMuted,
-                fontSize = 14.sp
-            )
+            Text("需要相机权限来分析您的坐姿", color = TextMuted, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = onRequest,
@@ -127,7 +143,7 @@ private fun PermissionScreen(onRequest: () -> Unit) {
                 colors = ButtonDefaults.buttonColors(containerColor = PgGreen),
                 modifier = Modifier.padding(horizontal = 32.dp)
             ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.CameraAlt, contentDescription = "授权相机", modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("授权相机", fontSize = 16.sp)
             }
@@ -207,16 +223,53 @@ fun CameraScreen(vm: PostureGuardViewModel) {
             EcoModeOverlay()
         }
 
+        // Pause overlay
+        if (uiState.isPaused) {
+            PauseOverlay(remaining = uiState.pauseRemainingSeconds)
+        }
+
         // Skeleton overlay
         if (uiState.showDebug && uiState.skeletonLandmarks != null) {
             SkeletonOverlay(landmarks = uiState.skeletonLandmarks!!)
         }
 
+        // Posture guidance arrows
+        if (uiState.currentPosture != PostureState.GOOD &&
+            uiState.currentPosture != PostureState.NO_PERSON &&
+            !uiState.isPaused
+        ) {
+            PostureGuidanceArrow(state = uiState.currentPosture, landmarks = uiState.skeletonLandmarks)
+        }
+
         // Top bar
-        TopBar(uiState = uiState)
+        TopBar(uiState = uiState, vm = vm)
 
         // Bottom panel
         BottomPanel(vm = vm, uiState = uiState)
+
+        // NO_PERSON pause suggestion
+        if (uiState.showPauseSuggestion) {
+            Snackbar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 200.dp)
+                    .padding(horizontal = 16.dp),
+                action = {
+                    TextButton(onClick = {
+                        vm.togglePause()
+                        vm.dismissPauseSuggestion()
+                    }) { Text("暂停", color = PgGreen) }
+                },
+                dismissAction = {
+                    TextButton(onClick = { vm.dismissPauseSuggestion() }) {
+                        Text("忽略", color = TextMuted)
+                    }
+                },
+                containerColor = SurfaceCard
+            ) {
+                Text("长时间未检测到人，是否暂停监测？", color = TextPrimary, fontSize = 14.sp)
+            }
+        }
     }
 }
 
@@ -241,7 +294,7 @@ private fun EcoModeOverlay() {
             )
             Icon(
                 Icons.Default.PowerSettingsNew,
-                contentDescription = null,
+                contentDescription = "省电模式",
                 modifier = Modifier.size(48.dp * pulse),
                 tint = PgGreen
             )
@@ -249,6 +302,35 @@ private fun EcoModeOverlay() {
             Text("省电模式", color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Text("检测仍在后台运行", color = TextMuted, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun PauseOverlay(remaining: Int) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xDD0D1B2A)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                Icons.Default.Pause,
+                contentDescription = "已暂停",
+                modifier = Modifier.size(48.dp),
+                tint = PgOrange
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("已暂停", color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            val min = remaining / 60
+            val sec = remaining % 60
+            Text(
+                "${min}分${sec}秒后自动恢复",
+                color = PgOrange,
+                fontSize = 16.sp
+            )
         }
     }
 }
@@ -280,7 +362,7 @@ private fun SkeletonOverlay(landmarks: List<Landmark3D>) {
 }
 
 @Composable
-private fun TopBar(uiState: UiState) {
+private fun TopBar(uiState: UiState, vm: PostureGuardViewModel) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -295,9 +377,21 @@ private fun TopBar(uiState: UiState) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = { vm.navigateTo(Screen.SETTINGS) },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.Settings,
+                    contentDescription = "设置",
+                    tint = TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
             Icon(
                 Icons.Default.Shield,
-                contentDescription = null,
+                contentDescription = "PostureGuard",
                 tint = PgGreen,
                 modifier = Modifier.size(20.dp)
             )
@@ -305,8 +399,22 @@ private fun TopBar(uiState: UiState) {
             Text("PostureGuard", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
 
-        // Status badge
-        PostureStatusBadge(state = uiState.currentPosture)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // History button
+            IconButton(
+                onClick = { vm.navigateTo(Screen.HISTORY) },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.History,
+                    contentDescription = "历史记录",
+                    tint = TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            PostureStatusBadge(state = uiState.currentPosture)
+        }
     }
 }
 
@@ -334,14 +442,13 @@ private fun PostureStatusBadge(state: PostureState) {
 
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = color.copy(alpha = 0.2f),
-        border = null
+        color = color.copy(alpha = 0.2f)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = "坐姿状态", tint = color, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(4.dp))
             Text(label, color = color, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         }
@@ -426,7 +533,6 @@ private fun PostureRing(state: PostureState) {
         val diameter = min(size.width, size.height) - strokeWidth
         val topLeft = Offset((size.width - diameter) / 2, (size.height - diameter) / 2)
 
-        // Background ring
         drawArc(
             color = Color.White.copy(alpha = 0.1f),
             startAngle = 0f,
@@ -437,7 +543,6 @@ private fun PostureRing(state: PostureState) {
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
 
-        // Pulse ring (bad posture)
         if (pulseAlpha > 0f) {
             drawArc(
                 color = color.copy(alpha = pulseAlpha),
@@ -450,7 +555,6 @@ private fun PostureRing(state: PostureState) {
             )
         }
 
-        // Active arc
         val sweep = if (state == PostureState.NO_PERSON) 60f else 360f
         drawArc(
             color = color,
@@ -540,7 +644,7 @@ private fun CalibratedBadge() {
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Check, contentDescription = null, tint = PgGreen, modifier = Modifier.size(12.dp))
+            Icon(Icons.Default.Check, contentDescription = "已校准", tint = PgGreen, modifier = Modifier.size(12.dp))
             Spacer(modifier = Modifier.width(3.dp))
             Text("已校准", color = PgGreen, fontSize = 11.sp)
         }
@@ -578,7 +682,7 @@ private fun SessionStatsRow(uiState: UiState) {
 @Composable
 private fun StatChip(icon: ImageVector, label: String, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
+        Icon(icon, contentDescription = "统计", tint = color, modifier = Modifier.size(12.dp))
         Spacer(modifier = Modifier.width(3.dp))
         Text(label, color = color, fontSize = 11.sp)
     }
@@ -592,21 +696,43 @@ private fun formatDuration(seconds: Long): String {
 
 @Composable
 private fun ControlButtons(vm: PostureGuardViewModel, uiState: UiState) {
+    var showCalibDialog by remember { mutableStateOf(false) }
+
+    if (showCalibDialog) {
+        CalibrationInfoDialog(
+            onDismiss = { showCalibDialog = false },
+            onStart = {
+                showCalibDialog = false
+                vm.startCalibration()
+            }
+        )
+    }
+
     Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         ControlButton(
             icon = if (uiState.isEcoMode) Icons.Default.Visibility else Icons.Default.PowerSettingsNew,
-            label = if (uiState.isEcoMode) "显示画面" else "省电",
+            label = if (uiState.isEcoMode) "画面" else "省电",
             onClick = vm::toggleEcoMode,
+            modifier = Modifier.weight(1f)
+        )
+        ControlButton(
+            icon = if (uiState.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+            label = if (uiState.isPaused) "继续" else "暂停",
+            onClick = vm::togglePause,
+            color = if (uiState.isPaused) PgOrange else TextSecondary,
             modifier = Modifier.weight(1f)
         )
         ControlButton(
             icon = Icons.Default.Tune,
             label = if (uiState.isCalibrating) "校准中" else "校准",
-            onClick = vm::startCalibration,
+            onClick = {
+                if (uiState.isCalibrating) return@ControlButton
+                showCalibDialog = true
+            },
             color = if (uiState.calibration != null) PgBlue else TextPrimary,
             modifier = Modifier.weight(1f)
         )
@@ -638,10 +764,66 @@ private fun ControlButton(
         border = null,
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+        Icon(icon, contentDescription = label, modifier = Modifier.size(16.dp))
         Spacer(modifier = Modifier.width(4.dp))
-        Text(label, fontSize = 12.sp)
+        Text(label, fontSize = 11.sp)
     }
+}
+
+@Composable
+private fun CalibrationInfoDialog(
+    onDismiss: () -> Unit,
+    onStart: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color(0xFF1A1A2E),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Tune, contentDescription = "坐姿校准", tint = PgBlue, modifier = Modifier.size(22.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("坐姿校准", color = TextPrimary, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    "校准会记录你当前的坐姿作为「标准姿势」，后续检测会以此为基准判断偏差。",
+                    color = TextSecondary,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = "第一步", tint = PgGreen, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("先调整到正确坐姿", color = TextSecondary, fontSize = 13.sp)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Timer, contentDescription = "第二步", tint = PgBlue, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("保持 3 秒完成采集", color = TextSecondary, fontSize = 13.sp)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Save, contentDescription = "第三步", tint = PgOrange, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("校准结果自动保存，下次无需重新校准", color = TextSecondary, fontSize = 13.sp)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onStart) {
+                Text("开始校准", color = PgGreen, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消", color = TextMuted)
+            }
+        }
+    )
 }
 
 private val SKELETON_CONNECTIONS = listOf(

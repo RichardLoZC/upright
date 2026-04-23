@@ -114,7 +114,8 @@ object PostureLogic {
         landmarks2d: List<Landmark3D>,
         landmarks3d: List<Landmark3D>?,
         fps: Double,
-        calibration: CalibrationProfile? = null
+        calibration: CalibrationProfile? = null,
+        sensitivityMultiplier: Double = 1.0
     ): PostureDiagnosis {
         val has3d = landmarks3d != null
 
@@ -132,7 +133,7 @@ object PostureLogic {
             refined
         }
 
-        val result3d = refined3d?.let { analyze3dCalibrated(it, calibration) }
+        val result3d = refined3d?.let { analyze3dCalibrated(it, calibration, sensitivityMultiplier) }
 
         // 3D bad → return immediately
         if (result3d != null && result3d.state != PostureState.GOOD) {
@@ -145,7 +146,7 @@ object PostureLogic {
             )
         }
 
-        val result2d = analyze2dCalibrated(landmarks2d, calibration)
+        val result2d = analyze2dCalibrated(landmarks2d, calibration, sensitivityMultiplier)
         if (result2d != null && result2d != PostureState.GOOD) {
             return PostureDiagnosis(
                 state = result2d,
@@ -168,7 +169,8 @@ object PostureLogic {
 
     private fun analyze2dCalibrated(
         landmarks: List<Landmark3D>,
-        calibration: CalibrationProfile?
+        calibration: CalibrationProfile?,
+        sensitivityMultiplier: Double = 1.0
     ): PostureState? {
         if (landmarks.size < 33) return null
         val leftEar = landmarks[7]; val rightEar = landmarks[8]
@@ -181,21 +183,23 @@ object PostureLogic {
 
         if (calibration != null) {
             val earDeviation = earDiffY - calibration.earDiffY
-            if (earDeviation > TILT_DEVIATION) return PostureState.BAD_TILT_LEFT
-            if (earDeviation < -TILT_DEVIATION) return PostureState.BAD_TILT_RIGHT
+            // Front camera with mirror: left ear lower (y↑) = user tilting left
+            if (earDeviation > TILT_DEVIATION * sensitivityMultiplier) return PostureState.BAD_TILT_LEFT
+            if (earDeviation < -TILT_DEVIATION * sensitivityMultiplier) return PostureState.BAD_TILT_RIGHT
             val shoulderDeviation = shoulderDiffY - calibration.shoulderDiffY
-            if (shoulderDeviation > SHOULDER_DEVIATION) return PostureState.BAD_SLOUCH
+            if (shoulderDeviation > SHOULDER_DEVIATION * sensitivityMultiplier) return PostureState.BAD_SLOUCH
         } else {
-            if (earDiffY > TILT_THRESHOLD) return PostureState.BAD_TILT_LEFT
-            if (earDiffY < -TILT_THRESHOLD) return PostureState.BAD_TILT_RIGHT
-            if (shoulderDiffY > SHOULDER_LEVEL_THRESHOLD) return PostureState.BAD_SLOUCH
+            if (earDiffY > TILT_THRESHOLD * sensitivityMultiplier) return PostureState.BAD_TILT_LEFT
+            if (earDiffY < -TILT_THRESHOLD * sensitivityMultiplier) return PostureState.BAD_TILT_RIGHT
+            if (shoulderDiffY > SHOULDER_LEVEL_THRESHOLD * sensitivityMultiplier) return PostureState.BAD_SLOUCH
         }
         return PostureState.GOOD
     }
 
     private fun analyze3dCalibrated(
         landmarks: List<Landmark3D>,
-        calibration: CalibrationProfile?
+        calibration: CalibrationProfile?,
+        sensitivityMultiplier: Double = 1.0
     ): Analysis3dResult? {
         if (landmarks.size < 33) return null
         val leftShoulder = landmarks[11]; val rightShoulder = landmarks[12]
@@ -220,14 +224,14 @@ object PostureLogic {
 
         val state = if (calibration != null) {
             when {
-                calibration.trunkAngle != null && trunkAngle > calibration.trunkAngle + TRUNK_DEVIATION_DEG -> PostureState.BAD_HUNCHBACK
-                calibration.cva != null && cva != null && cva < calibration.cva - CVA_DEVIATION_DEG -> PostureState.BAD_FORWARD_HEAD
+                calibration.trunkAngle != null && trunkAngle > calibration.trunkAngle + TRUNK_DEVIATION_DEG * sensitivityMultiplier -> PostureState.BAD_HUNCHBACK
+                calibration.cva != null && cva != null && cva < calibration.cva - CVA_DEVIATION_DEG * sensitivityMultiplier -> PostureState.BAD_FORWARD_HEAD
                 else -> PostureState.GOOD
             }
         } else {
             when {
-                trunkAngle > TRUNK_INCLINATION_THRESHOLD_DEG -> PostureState.BAD_HUNCHBACK
-                cva != null && cva < CVA_THRESHOLD_DEG -> PostureState.BAD_FORWARD_HEAD
+                trunkAngle > TRUNK_INCLINATION_THRESHOLD_DEG * sensitivityMultiplier -> PostureState.BAD_HUNCHBACK
+                cva != null && cva < CVA_THRESHOLD_DEG * sensitivityMultiplier -> PostureState.BAD_FORWARD_HEAD
                 else -> PostureState.GOOD
             }
         }
