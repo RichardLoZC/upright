@@ -1,5 +1,6 @@
 package com.example.postureguard
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,6 +24,7 @@ import com.example.postureguard.ui.theme.*
 fun SettingsScreen(vm: PostureGuardViewModel) {
     val uiState by vm.uiState.collectAsState()
     val settings = uiState.settings
+    val context = LocalContext.current
     var showResetDialog by remember { mutableStateOf(false) }
 
     if (showResetDialog) {
@@ -35,6 +38,7 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                 TextButton(onClick = {
                     vm.resetCalibration()
                     showResetDialog = false
+                    Toast.makeText(context, "校准已清除", Toast.LENGTH_SHORT).show()
                 }) { Text("清除", color = PgRed, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {

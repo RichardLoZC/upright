@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import com.example.postureguard.ui.theme.PgOrange
 
 @Composable
-fun PostureGuidanceArrow(state: PostureState, landmarks: List<Landmark3D>?) {
+fun PostureGuidanceArrow(state: PostureState) {
     val infiniteTransition = rememberInfiniteTransition(label = "guidancePulse")
     val pulse by infiniteTransition.animateFloat(
         initialValue = 0.3f,

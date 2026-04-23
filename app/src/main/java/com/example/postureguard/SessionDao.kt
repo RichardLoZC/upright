@@ -22,4 +22,13 @@ interface SessionDao {
 
     @Query("SELECT COUNT(DISTINCT date) FROM sessions WHERE date <= :untilDate AND date >= :startDate")
     suspend fun getActiveDaysCount(startDate: String, untilDate: String): Int
+
+    @Query("""
+        SELECT date, SUM(goodDurationSeconds) as goodDurationSeconds,
+               SUM(badDurationSeconds) as badDurationSeconds
+        FROM sessions
+        WHERE date <= :untilDate AND date >= :startDate
+        GROUP BY date ORDER BY date DESC
+    """)
+    suspend fun getDailySummariesRange(startDate: String, untilDate: String): List<DailySummary>
 }

@@ -11,7 +11,6 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import android.util.Log
-import android.widget.Toast
 import androidx.camera.core.ImageProxy
 import androidx.core.content.getSystemService
 import androidx.lifecycle.AndroidViewModel
@@ -86,7 +85,8 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     private var lastUiUpdateTime = 0L
     private val uiUpdateIntervalMs = 33L
     private var pauseJob: Job? = null
-    private var noPersonStartMs: Long? = null
+    private val noPersonStartMs = java.util.concurrent.atomic.AtomicLong(0)
+    private val noPersonActive = java.util.concurrent.atomic.AtomicBoolean(false)
 
     private val forwardHeadMessagesZh = listOf(
         "头太靠前了，收下巴", "注意头部前倾", "把头收回来一些", "下巴微收，头部后移"
@@ -246,9 +246,8 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     fun resumeMonitoring() {
         pauseJob?.cancel()
         pauseJob = null
-        _uiState.value = _uiState.value.copy(isPaused = false, pauseRemainingSeconds = 0)
-        noPersonStartMs = null
-        _uiState.value = _uiState.value.copy(showPauseSuggestion = false)
+        noPersonActive.set(false)
+        _uiState.value = _uiState.value.copy(isPaused = false, pauseRemainingSeconds = 0, showPauseSuggestion = false)
     }
 
     fun dismissPauseSuggestion() {
@@ -347,12 +346,14 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
 
             // NO_PERSON timeout for pause suggestion
             if (debounced == PostureState.NO_PERSON) {
-                if (noPersonStartMs == null) noPersonStartMs = SystemClock.uptimeMillis()
-                if (SystemClock.uptimeMillis() - noPersonStartMs!! > 120_000 && !_uiState.value.showPauseSuggestion) {
+                if (!noPersonActive.getAndSet(true)) {
+                    noPersonStartMs.set(SystemClock.uptimeMillis())
+                }
+                if (SystemClock.uptimeMillis() - noPersonStartMs.get() > 120_000 && !_uiState.value.showPauseSuggestion) {
                     _uiState.value = _uiState.value.copy(showPauseSuggestion = true)
                 }
             } else {
-                noPersonStartMs = null
+                noPersonActive.set(false)
                 if (_uiState.value.showPauseSuggestion) {
                     _uiState.value = _uiState.value.copy(showPauseSuggestion = false)
                 }
@@ -489,22 +490,16 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
 
             // Calculate streak: count consecutive days ending today with >= 80% good
             var streak = 0
-            val streakCal = Calendar.getInstance()
-            for (i in 0 until 365) {
-                val d = sdf.format(streakCal.time)
-                val daySessions = db.sessionDao().getSessionsForDate(d)
-                if (daySessions.isEmpty()) break
-                val goodTotal = daySessions.sumOf { it.goodDurationSeconds }
-                val badTotal = daySessions.sumOf { it.badDurationSeconds }
-                val total = goodTotal + badTotal
+            val streakStartCal = Calendar.getInstance()
+            streakStartCal.add(Calendar.DAY_OF_YEAR, -60) // Look back max 60 days
+            val streakSummaries = db.sessionDao().getDailySummariesRange(
+                sdf.format(streakStartCal.time), today
+            )
+            for (daySummary in streakSummaries.reversed()) {
+                val total = daySummary.goodDurationSeconds + daySummary.badDurationSeconds
                 if (total == 0L) break
-                val ratio = goodTotal.toDouble() / total
-                if (ratio >= 0.8) {
-                    streak++
-                    streakCal.add(Calendar.DAY_OF_YEAR, -1)
-                } else {
-                    break
-                }
+                val ratio = daySummary.goodDurationSeconds.toDouble() / total
+                if (ratio >= 0.8) streak++ else break
             }
 
             _uiState.value = _uiState.value.copy(

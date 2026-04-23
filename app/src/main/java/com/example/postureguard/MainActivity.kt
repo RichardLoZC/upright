@@ -229,8 +229,9 @@ fun CameraScreen(vm: PostureGuardViewModel) {
         }
 
         // Skeleton overlay
-        if (uiState.showDebug && uiState.skeletonLandmarks != null) {
-            SkeletonOverlay(landmarks = uiState.skeletonLandmarks!!)
+        val skeleton = uiState.skeletonLandmarks
+        if (uiState.showDebug && skeleton != null) {
+            SkeletonOverlay(landmarks = skeleton)
         }
 
         // Posture guidance arrows
@@ -238,7 +239,7 @@ fun CameraScreen(vm: PostureGuardViewModel) {
             uiState.currentPosture != PostureState.NO_PERSON &&
             !uiState.isPaused
         ) {
-            PostureGuidanceArrow(state = uiState.currentPosture, landmarks = uiState.skeletonLandmarks)
+            PostureGuidanceArrow(state = uiState.currentPosture)
         }
 
         // Top bar

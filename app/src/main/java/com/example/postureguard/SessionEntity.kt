@@ -1,9 +1,10 @@
 package com.example.postureguard
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "sessions")
+@Entity(tableName = "sessions", indices = [Index("date")])
 data class SessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val date: String,

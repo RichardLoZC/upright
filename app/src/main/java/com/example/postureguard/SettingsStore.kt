@@ -47,9 +47,13 @@ class SettingsStore(private val context: Context) {
 
     suspend fun load(): SettingsProfile {
         return context.settingsDataStore.data.map { prefs ->
+            val interval = prefs[KEY_ALERT_INTERVAL] ?: 5
+            val validIntervals = setOf(5, 10, 30, 60)
+            val autoResume = prefs[KEY_AUTO_RESUME] ?: 10
+            val validAutoResume = setOf(5, 10, 15, 20)
             SettingsProfile(
                 onboardingCompleted = prefs[KEY_ONBOARDING] ?: false,
-                alertIntervalSeconds = prefs[KEY_ALERT_INTERVAL] ?: 5,
+                alertIntervalSeconds = if (interval in validIntervals) interval else 5,
                 soundEnabled = prefs[KEY_SOUND_ENABLED] ?: true,
                 vibrationEnabled = prefs[KEY_VIBRATION_ENABLED] ?: true,
                 sensitivityLevel = try {
@@ -58,7 +62,7 @@ class SettingsStore(private val context: Context) {
                 alertLanguage = try {
                     AlertLanguage.valueOf(prefs[KEY_LANGUAGE] ?: "ZH")
                 } catch (_: Exception) { AlertLanguage.ZH },
-                autoResumeMinutes = prefs[KEY_AUTO_RESUME] ?: 10
+                autoResumeMinutes = if (autoResume in validAutoResume) autoResume else 10
             )
         }.first()
     }
