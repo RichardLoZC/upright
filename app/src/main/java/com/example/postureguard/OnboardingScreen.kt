@@ -51,6 +51,7 @@ fun OnboardingScreen(vm: PostureGuardViewModel) {
                 },
                 label = "onboarding"
             ) { targetPage ->
+                val currentKey = targetPage
                 when (targetPage) {
                     0 -> OnboardingPage(
                         icon = Icons.Default.Shield,

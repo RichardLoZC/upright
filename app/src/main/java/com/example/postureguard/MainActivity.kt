@@ -164,7 +164,10 @@ fun CameraScreen(vm: PostureGuardViewModel) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> vm.startForegroundMonitor()
-                Lifecycle.Event.ON_PAUSE -> vm.stopForegroundMonitor()
+                Lifecycle.Event.ON_PAUSE -> {
+                    vm.stopForegroundMonitor()
+                    vm.saveCurrentSession()
+                }
                 else -> {}
             }
         }
