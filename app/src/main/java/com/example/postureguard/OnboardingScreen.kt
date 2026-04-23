@@ -25,6 +25,8 @@ import com.example.postureguard.ui.theme.*
 
 @Composable
 fun OnboardingScreen(vm: PostureGuardViewModel) {
+    val uiState by vm.uiState.collectAsState()
+    val s = stringsFor(uiState.settings.alertLanguage)
     var page by remember { mutableIntStateOf(0) }
 
     Box(
@@ -56,29 +58,28 @@ fun OnboardingScreen(vm: PostureGuardViewModel) {
                         icon = Icons.Default.Shield,
                         iconColor = PgGreen,
                         title = "PostureGuard",
-                        subtitle = "实时坐姿监测助手",
-                        description = "利用手机前置摄像头和 AI 技术，\n实时监测您的坐姿状态，\n帮助您养成健康的工作习惯。"
+                        subtitle = s.onbTitle1,
+                        description = s.onbDesc1
                     )
                     1 -> OnboardingPage(
                         icon = Icons.Default.PhoneAndroid,
                         iconColor = PgBlue,
-                        title = "手机摆放建议",
-                        subtitle = "获得最佳检测效果",
-                        description = "• 将手机放在正前方，与视线等高\n• 前置摄像头朝向自己\n• 保持 0.5-1.5 米的距离\n• 确保光线充足"
+                        title = s.onbTitle2,
+                        subtitle = s.onbSubtitle2,
+                        description = s.onbDesc2
                     )
                     2 -> OnboardingPage(
                         icon = Icons.Default.Tune,
                         iconColor = PgBlue,
-                        title = "个性化校准",
-                        subtitle = "记录您的标准坐姿",
-                        description = "校准会记录您正确坐姿的姿态数据，\n后续检测会以此为基准。\n建议在坐姿端正时进行校准。"
+                        title = s.onbTitle3,
+                        subtitle = s.onbSubtitle3,
+                        description = s.onbDesc3
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Page indicator dots
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -98,7 +99,6 @@ fun OnboardingScreen(vm: PostureGuardViewModel) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
@@ -110,9 +110,9 @@ fun OnboardingScreen(vm: PostureGuardViewModel) {
                         colors = ButtonDefaults.buttonColors(containerColor = PgGreen),
                         modifier = Modifier.padding(horizontal = 32.dp)
                     ) {
-                        Icon(Icons.Default.ArrowForward, contentDescription = "下一步", modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.ArrowForward, contentDescription = s.next, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("下一步", fontSize = 16.sp)
+                        Text(s.next, fontSize = 16.sp)
                     }
                 } else {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -122,13 +122,13 @@ fun OnboardingScreen(vm: PostureGuardViewModel) {
                             colors = ButtonDefaults.buttonColors(containerColor = PgGreen),
                             modifier = Modifier.padding(horizontal = 32.dp)
                         ) {
-                            Icon(Icons.Default.Check, contentDescription = "开始使用", modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Check, contentDescription = s.getStarted, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("开始使用", fontSize = 16.sp)
+                            Text(s.getStarted, fontSize = 16.sp)
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         TextButton(onClick = { vm.completeOnboarding() }) {
-                            Text("跳过，稍后再校准", color = TextMuted, fontSize = 14.sp)
+                            Text(s.skipCalib, color = TextMuted, fontSize = 14.sp)
                         }
                     }
                 }

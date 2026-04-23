@@ -24,6 +24,7 @@ import com.example.postureguard.ui.theme.*
 fun SettingsScreen(vm: PostureGuardViewModel) {
     val uiState by vm.uiState.collectAsState()
     val settings = uiState.settings
+    val s = stringsFor(settings.alertLanguage)
     val context = LocalContext.current
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -32,17 +33,17 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
             onDismissRequest = { showResetDialog = false },
             shape = RoundedCornerShape(20.dp),
             containerColor = Color(0xFF1A1A2E),
-            title = { Text("清除校准", color = TextPrimary, fontWeight = FontWeight.Bold) },
-            text = { Text("确定要清除校准数据吗？清除后将使用默认阈值进行检测。", color = TextSecondary, fontSize = 14.sp) },
+            title = { Text(s.clearCalibration, color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text(s.clearCalibConfirm, color = TextSecondary, fontSize = 14.sp) },
             confirmButton = {
                 TextButton(onClick = {
                     vm.resetCalibration()
                     showResetDialog = false
-                    Toast.makeText(context, "校准已清除", Toast.LENGTH_SHORT).show()
-                }) { Text("清除", color = PgRed, fontWeight = FontWeight.Bold) }
+                    Toast.makeText(context, s.calibCleared, Toast.LENGTH_SHORT).show()
+                }) { Text(s.clearCalibration, color = PgRed, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text("取消", color = TextMuted) }
+                TextButton(onClick = { showResetDialog = false }) { Text(s.cancel, color = TextMuted) }
             }
         )
     }
@@ -52,7 +53,6 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
             .fillMaxSize()
             .background(SurfaceDark)
     ) {
-        // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -61,9 +61,9 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { vm.navigateTo(Screen.MAIN) }) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = TextPrimary)
+                Icon(Icons.Default.ArrowBack, contentDescription = s.back, tint = TextPrimary)
             }
-            Text("设置", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(s.settings, color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
         Column(
@@ -75,30 +75,24 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Alert interval
-            SettingsSection("提醒间隔") {
+            SettingsSection(s.alertInterval) {
                 ChipRow(
-                    options = listOf(5 to "5秒", 10 to "10秒", 30 to "30秒", 60 to "60秒"),
+                    options = listOf(5 to s.seconds[0], 10 to s.seconds[1], 30 to s.seconds[2], 60 to s.seconds[3]),
                     selected = settings.alertIntervalSeconds,
                     onSelect = { vm.updateAlertInterval(it) }
                 )
-                Text(
-                    "不良姿势持续 1 分钟后按此间隔播放提示音",
-                    color = TextMuted,
-                    fontSize = 12.sp
-                )
+                Text(s.alertIntervalDesc, color = TextMuted, fontSize = 12.sp)
             }
 
-            // Sound
-            SettingsSection("提示音") {
+            SettingsSection(s.soundSection) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("声音提醒", color = TextSecondary, fontSize = 14.sp)
-                        Text("坐姿异常时播放乌鸦叫声提醒", color = TextMuted, fontSize = 12.sp)
+                        Text(s.soundLabel, color = TextSecondary, fontSize = 14.sp)
+                        Text(s.soundDesc, color = TextMuted, fontSize = 12.sp)
                     }
                     Switch(
                         checked = settings.soundEnabled,
@@ -108,14 +102,13 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                 }
             }
 
-            // Vibration
-            SettingsSection("震动反馈") {
+            SettingsSection(s.vibration) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("姿态异常时震动提醒", color = TextSecondary, fontSize = 14.sp)
+                    Text(s.vibrationDesc, color = TextSecondary, fontSize = 14.sp)
                     Switch(
                         checked = settings.vibrationEnabled,
                         onCheckedChange = { vm.updateVibrationEnabled(it) },
@@ -124,26 +117,24 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                 }
             }
 
-            // Sensitivity
-            SettingsSection("检测灵敏度") {
+            SettingsSection(s.sensitivity) {
                 ChipRow(
-                    options = listOf(SensitivityLevel.LOW to "低", SensitivityLevel.MEDIUM to "中", SensitivityLevel.HIGH to "高"),
+                    options = listOf(SensitivityLevel.LOW to s.sensLow, SensitivityLevel.MEDIUM to s.sensMedium, SensitivityLevel.HIGH to s.sensHigh),
                     selected = settings.sensitivityLevel,
                     onSelect = { vm.updateSensitivity(it) }
                 )
                 Text(
                     when (settings.sensitivityLevel) {
-                        SensitivityLevel.LOW -> "较低的灵敏度，减少误报"
-                        SensitivityLevel.MEDIUM -> "默认灵敏度，平衡准确性和体验"
-                        SensitivityLevel.HIGH -> "较高的灵敏度，更及时提醒"
+                        SensitivityLevel.LOW -> s.sensLowDesc
+                        SensitivityLevel.MEDIUM -> s.sensMediumDesc
+                        SensitivityLevel.HIGH -> s.sensHighDesc
                     },
                     color = TextMuted,
                     fontSize = 12.sp
                 )
             }
 
-            // Alert language
-            SettingsSection("提醒语言") {
+            SettingsSection(s.language) {
                 ChipRow(
                     options = listOf(AlertLanguage.ZH to "中文", AlertLanguage.EN to "English"),
                     selected = settings.alertLanguage,
@@ -151,25 +142,23 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                 )
             }
 
-            // Auto resume
-            SettingsSection("暂停后自动恢复") {
+            SettingsSection(s.autoResume) {
                 ChipRow(
-                    options = listOf(5 to "5分钟", 10 to "10分钟", 15 to "15分钟", 20 to "20分钟"),
+                    options = listOf(5 to s.minutes[0], 10 to s.minutes[1], 15 to s.minutes[2], 20 to s.minutes[3]),
                     selected = settings.autoResumeMinutes,
                     onSelect = { vm.updateAutoResumeMinutes(it) }
                 )
             }
 
-            // Eco mode
-            SettingsSection("省电模式") {
+            SettingsSection(s.ecoModeSection) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("省电模式", color = TextSecondary, fontSize = 14.sp)
-                        Text("关闭预览画面，降低检测频率", color = TextMuted, fontSize = 12.sp)
+                        Text(s.ecoModeSection, color = TextSecondary, fontSize = 14.sp)
+                        Text(s.ecoModeDesc2, color = TextMuted, fontSize = 12.sp)
                     }
                     Switch(
                         checked = uiState.isEcoMode,
@@ -179,22 +168,21 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                 }
             }
 
-            // Calibration management
-            SettingsSection("校准管理") {
+            SettingsSection(s.calibManagement) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("校准状态", color = TextSecondary, fontSize = 14.sp)
+                        Text(s.calibStatus, color = TextSecondary, fontSize = 14.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = if (uiState.calibration != null) PgGreen.copy(alpha = 0.15f) else PgGray.copy(alpha = 0.15f)
                         ) {
                             Text(
-                                if (uiState.calibration != null) "已校准" else "未校准",
+                                if (uiState.calibration != null) s.calibrated else s.notCalibrated,
                                 color = if (uiState.calibration != null) PgGreen else PgGray,
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -219,9 +207,9 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                             containerColor = PgBlue.copy(alpha = 0.1f)
                         )
                     ) {
-                        Icon(Icons.Default.Tune, contentDescription = "重新校准", modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Tune, contentDescription = s.recalibrate, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("重新校准", fontSize = 13.sp)
+                        Text(s.recalibrate, fontSize = 13.sp)
                     }
                     if (uiState.calibration != null) {
                         OutlinedButton(
@@ -233,25 +221,24 @@ fun SettingsScreen(vm: PostureGuardViewModel) {
                                 containerColor = PgRed.copy(alpha = 0.1f)
                             )
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "清除校准", modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Delete, contentDescription = s.clearCalibration, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("清除校准", fontSize = 13.sp)
+                            Text(s.clearCalibration, fontSize = 13.sp)
                         }
                     }
                 }
             }
 
-            // About
-            SettingsSection("关于") {
+            SettingsSection(s.about) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("版本", color = TextSecondary, fontSize = 14.sp)
+                    Text(s.version, color = TextSecondary, fontSize = 14.sp)
                     Text("1.0.0", color = TextMuted, fontSize = 14.sp)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("PostureGuard 使用设备端 AI 进行实时坐姿监测，无需网络连接。", color = TextMuted, fontSize = 12.sp)
+                Text(s.aboutDesc, color = TextMuted, fontSize = 12.sp)
             }
 
             Spacer(modifier = Modifier.height(32.dp))

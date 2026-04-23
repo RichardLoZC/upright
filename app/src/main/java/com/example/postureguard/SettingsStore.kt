@@ -20,7 +20,7 @@ data class SettingsProfile(
     val onboardingCompleted: Boolean = false,
     val alertIntervalSeconds: Int = 5,
     val soundEnabled: Boolean = true,
-    val vibrationEnabled: Boolean = true,
+    val vibrationEnabled: Boolean = false,
     val sensitivityLevel: SensitivityLevel = SensitivityLevel.MEDIUM,
     val alertLanguage: AlertLanguage = AlertLanguage.ZH,
     val autoResumeMinutes: Int = 10

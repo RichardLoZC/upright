@@ -27,6 +27,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(vm: PostureGuardViewModel) {
     val uiState by vm.uiState.collectAsState()
+    val s = stringsFor(uiState.settings.alertLanguage)
 
     // Refresh every time the screen is shown
     LaunchedEffect(System.currentTimeMillis()) { vm.loadHistoryData() }
@@ -42,7 +43,7 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator(color = PgGreen, modifier = Modifier.size(32.dp))
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("加载中...", color = TextMuted, fontSize = 14.sp)
+                Text(s.loading, color = TextMuted, fontSize = 14.sp)
             }
         }
         return
@@ -62,9 +63,9 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { vm.navigateTo(Screen.MAIN) }) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = TextPrimary)
+                Icon(Icons.Default.ArrowBack, contentDescription = s.back, tint = TextPrimary)
             }
-            Text("历史记录", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(s.history, color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
         Column(
@@ -91,11 +92,11 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
                         modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("今日目标", color = TextSecondary, fontSize = 13.sp)
+                        Text(s.todayGoal, color = TextSecondary, fontSize = 13.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        TodayGoalRing(uiState)
+                        TodayGoalRing(uiState, s)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("80% 良好坐姿", color = TextMuted, fontSize = 11.sp)
+                        Text(s.goalDesc, color = TextMuted, fontSize = 11.sp)
                     }
                 }
 
@@ -109,17 +110,17 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
                         modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("连续达标", color = TextSecondary, fontSize = 13.sp)
+                        Text(s.streak, color = TextSecondary, fontSize = 13.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         Icon(
                             Icons.Default.LocalFireDepartment,
-                            contentDescription = "连续达标天数",
+                            contentDescription = s.streak,
                             tint = PgOrange,
                             modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "${uiState.currentStreak} 天",
+                            "${uiState.currentStreak} ${s.streakUnit}",
                             color = PgOrange,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
@@ -134,9 +135,9 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
                 color = SurfaceCardLight
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("近 7 天坐姿趋势", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(s.weeklyTrend, color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
-                    WeeklyBarChart(summary = uiState.weeklySummary)
+                    WeeklyBarChart(summary = uiState.weeklySummary, dayNames = s.dayNames)
                 }
             }
 
@@ -147,7 +148,7 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
                     color = SurfaceCardLight
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("今日记录", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(s.todayRecords, color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
                         uiState.todaySessions.forEach { session ->
                             val total = session.goodDurationSeconds + session.badDurationSeconds
@@ -195,10 +196,10 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
                         modifier = Modifier.padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Default.History, contentDescription = "暂无记录", tint = TextMuted, modifier = Modifier.size(40.dp))
+                        Icon(Icons.Default.History, contentDescription = s.noRecords, tint = TextMuted, modifier = Modifier.size(40.dp))
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("今天还没有监测记录", color = TextMuted, fontSize = 14.sp)
-                        Text("开始监测后会自动保存数据", color = TextMuted.copy(alpha = 0.7f), fontSize = 12.sp)
+                        Text(s.noRecords, color = TextMuted, fontSize = 14.sp)
+                        Text(s.noRecordsHint, color = TextMuted.copy(alpha = 0.7f), fontSize = 12.sp)
                     }
                 }
             }
@@ -209,7 +210,7 @@ fun HistoryScreen(vm: PostureGuardViewModel) {
 }
 
 @Composable
-private fun TodayGoalRing(uiState: UiState) {
+private fun TodayGoalRing(uiState: UiState, s: S) {
     // Combine saved sessions + current live session for today's goal
     val savedGood = uiState.todaySessions.sumOf { it.goodDurationSeconds }
     val savedBad = uiState.todaySessions.sumOf { it.badDurationSeconds }
@@ -249,7 +250,7 @@ private fun TodayGoalRing(uiState: UiState) {
     }
     Spacer(modifier = Modifier.height(4.dp))
     if (metGoal && total > 0) {
-        Icon(Icons.Default.CheckCircle, contentDescription = "已达标", tint = PgGreen, modifier = Modifier.size(18.dp))
+        Icon(Icons.Default.CheckCircle, contentDescription = s.goalMet, tint = PgGreen, modifier = Modifier.size(18.dp))
     }
     Text(
         if (total > 0) "${(ratio * 100).toInt()}%" else "--",
@@ -260,8 +261,7 @@ private fun TodayGoalRing(uiState: UiState) {
 }
 
 @Composable
-private fun WeeklyBarChart(summary: List<DailySummary>) {
-    val dayNames = listOf("一", "二", "三", "四", "五", "六", "日")
+private fun WeeklyBarChart(summary: List<DailySummary>, dayNames: List<String>) {
     val hasData = summary.isNotEmpty()
 
     Row(

@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.runBlocking
 
 class PostureMonitorService : Service() {
 
@@ -19,27 +20,46 @@ class PostureMonitorService : Service() {
         const val ACTION_STOP = "com.example.postureguard.STOP_MONITOR"
         const val ACTION_UPDATE = "com.example.postureguard.UPDATE_STATUS"
         const val EXTRA_STATE = "posture_state"
+        const val EXTRA_LANG = "alert_language"
     }
+
+    private var currentLang: AlertLanguage = AlertLanguage.ZH
+    private val s get() = stringsFor(currentLang)
 
     override fun onCreate() {
         super.onCreate()
+        currentLang = loadLanguage()
         createNotificationChannel()
     }
 
+    private fun loadLanguage(): AlertLanguage {
+        return try {
+            val store = SettingsStore(this)
+            runBlocking { store.load().alertLanguage }
+        } catch (_: Exception) {
+            AlertLanguage.ZH
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Update language if provided
+        intent?.getStringExtra(EXTRA_LANG)?.let {
+            try { currentLang = AlertLanguage.valueOf(it) } catch (_: Exception) {}
+        }
+
         when (intent?.action) {
             ACTION_STOP -> {
                 stopSelf()
                 return START_NOT_STICKY
             }
             ACTION_UPDATE -> {
-                val stateName = intent.getStringExtra(EXTRA_STATE) ?: "未知"
+                val stateName = intent.getStringExtra(EXTRA_STATE) ?: s.notifUnknown
                 updateNotification(stateName)
                 return START_NOT_STICKY
             }
         }
 
-        val notification = buildNotification("坐姿监测运行中")
+        val notification = buildNotification(s.notifRunning)
         startForeground(
             NOTIFICATION_ID,
             notification,
@@ -72,7 +92,7 @@ class PostureMonitorService : Service() {
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "停止", stopPending)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, s.notifStop, stopPending)
             .setOngoing(true)
             .setSilent(true)
             .build()
@@ -87,10 +107,10 @@ class PostureMonitorService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "坐姿监测",
+            s.notifChannel,
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "后台坐姿监测服务"
+            description = s.notifChannelDesc
             setShowBadge(false)
         }
         val manager = getSystemService(NotificationManager::class.java)

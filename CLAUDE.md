@@ -36,6 +36,7 @@ app/src/main/java/com/example/postureguard/
 ├── AppDatabase.kt             # Room database singleton for session history
 ├── SessionDao.kt              # Room DAO for session queries (daily, weekly, streak)
 ├── SessionEntity.kt           # Room entity for posture session data
+├── Strings.kt                 # Multi-language strings (S data class, StringsZh/StringsEn, stringsFor())
 ├── OnboardingScreen.kt        # 3-page onboarding (purpose, setup tips, get started)
 ├── SettingsScreen.kt          # Settings page (alerts, sensitivity, language, calibration management)
 ├── HistoryScreen.kt           # History page (weekly chart, daily goal, streak, session list)
@@ -79,6 +80,7 @@ Requires a physical device with a front camera. Camera permission is requested a
 - User calibration captures personalized baseline including bone ratios and rotation matrix
 - Calibration aborts if person leaves during countdown
 - **Settings**: Alert interval (5/10/30/60s), sound/vibration toggles, sensitivity (LOW/MEDIUM/HIGH), language (ZH/EN), auto-resume timer, calibration management
+- **Multi-language**: Centralized `S` data class in Strings.kt with `StringsZh`/`StringsEn` instances; all UI screens use `stringsFor(lang)` to get localized strings based on `AlertLanguage` setting
 - **Pause/Resume**: Auto-resume countdown, skips frame processing and stats when paused
 - **Posture guidance**: Animated directional arrows on camera preview for each bad posture type
 - **History**: Room database with daily sessions, weekly bar chart, daily goal (80%), streak counter

@@ -327,19 +327,20 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private fun updateNotificationState(state: PostureState) {
-        val useEn = _uiState.value.settings.alertLanguage == AlertLanguage.EN
+        val s = stringsFor(_uiState.value.settings.alertLanguage)
         val stateText = when (state) {
-            PostureState.GOOD -> if (useEn) "Good posture" else "坐姿良好"
-            PostureState.BAD_TILT -> if (useEn) "Head tilting" else "头部侧歪"
-            PostureState.BAD_SLOUCH -> if (useEn) "Uneven shoulders" else "肩膀不平"
-            PostureState.BAD_FORWARD_HEAD -> if (useEn) "Forward head" else "头部前倾"
-            PostureState.BAD_HUNCHBACK -> if (useEn) "Slouching" else "驼背"
-            PostureState.NO_PERSON -> if (useEn) "No person detected" else "未检测到人"
+            PostureState.GOOD -> s.goodPosture
+            PostureState.BAD_TILT -> s.headTilt
+            PostureState.BAD_SLOUCH -> s.shoulderUneven
+            PostureState.BAD_FORWARD_HEAD -> s.forwardHead
+            PostureState.BAD_HUNCHBACK -> s.hunchback
+            PostureState.NO_PERSON -> s.noPerson
         }
         val app = getApplication<Application>()
         val intent = Intent(app, PostureMonitorService::class.java).apply {
             action = PostureMonitorService.ACTION_UPDATE
             putExtra(PostureMonitorService.EXTRA_STATE, stateText)
+            putExtra(PostureMonitorService.EXTRA_LANG, _uiState.value.settings.alertLanguage.name)
         }
         app.startService(intent)
     }
@@ -393,6 +394,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
 
     private var lastSoundState = PostureState.NO_PERSON
     private var badPostureStartMs = 0L
+    private var cawPlayed = false
 
     private fun playAlertSound(state: PostureState) {
         val isBad = state != PostureState.GOOD && state != PostureState.NO_PERSON
@@ -400,11 +402,16 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
         // Track when bad posture starts
         if (isBad && lastSoundState == PostureState.GOOD) {
             badPostureStartMs = System.currentTimeMillis()
+            cawPlayed = false
         }
 
-        // Bird chirp: only once on state change to GOOD (from bad/NO_PERSON)
-        if (state == PostureState.GOOD && lastSoundState != PostureState.GOOD) {
+        // Bird chirp: only if crow caw was previously triggered
+        if (state == PostureState.GOOD && isBad != (lastSoundState != PostureState.GOOD && lastSoundState != PostureState.NO_PERSON)) {
+            // no-op: this handles same-state transitions
+        }
+        if (state == PostureState.GOOD && lastSoundState != PostureState.GOOD && cawPlayed) {
             soundEffects.playChirp()
+            cawPlayed = false
         }
 
         // Crow caw: only after bad posture persists for 1 minute, then at alert interval
@@ -416,6 +423,7 @@ class PostureGuardViewModel(application: Application) : AndroidViewModel(applica
                 if (now - lastAlertTime >= interval) {
                     soundEffects.playCaw()
                     lastAlertTime = now
+                    cawPlayed = true
                 }
             }
         }

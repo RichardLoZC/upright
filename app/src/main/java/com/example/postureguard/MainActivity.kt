@@ -71,12 +71,12 @@ class MainActivity : ComponentActivity() {
 fun PostureGuardApp(vm: PostureGuardViewModel = viewModel()) {
     val uiState by vm.uiState.collectAsState()
     val context = LocalContext.current
+    val s = stringsFor(uiState.settings.alertLanguage)
 
-    // Calibration result toast
     LaunchedEffect(uiState.calibrationSuccess) {
         when (uiState.calibrationSuccess) {
-            true -> Toast.makeText(context, "校准成功", Toast.LENGTH_SHORT).show()
-            false -> Toast.makeText(context, "校准失败，请确保坐在摄像头前方", Toast.LENGTH_LONG).show()
+            true -> Toast.makeText(context, s.calibSuccess, Toast.LENGTH_SHORT).show()
+            false -> Toast.makeText(context, s.calibFailed, Toast.LENGTH_LONG).show()
             null -> {}
         }
         if (uiState.calibrationSuccess != null) vm.consumeCalibrationResult()
@@ -93,6 +93,8 @@ fun PostureGuardApp(vm: PostureGuardViewModel = viewModel()) {
 @Composable
 private fun MainWithPermission(vm: PostureGuardViewModel) {
     val context = LocalContext.current
+    val uiState by vm.uiState.collectAsState()
+    val s = stringsFor(uiState.settings.alertLanguage)
     var hasCameraPermission by remember {
         mutableStateOf(
             context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -112,12 +114,12 @@ private fun MainWithPermission(vm: PostureGuardViewModel) {
     if (hasCameraPermission) {
         CameraScreen(vm)
     } else {
-        PermissionScreen(onRequest = { launcher.launch(Manifest.permission.CAMERA) })
+        PermissionScreen(onRequest = { launcher.launch(Manifest.permission.CAMERA) }, s = s)
     }
 }
 
 @Composable
-private fun PermissionScreen(onRequest: () -> Unit) {
+private fun PermissionScreen(onRequest: () -> Unit, s: S) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -134,21 +136,16 @@ private fun PermissionScreen(onRequest: () -> Unit) {
         ) {
             Icon(
                 Icons.Default.VerifiedUser,
-                contentDescription = "应用图标",
+                contentDescription = s.appName,
                 modifier = Modifier.size(72.dp),
                 tint = PgGreen
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                "PostureGuard",
-                color = TextPrimary,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text("PostureGuard", color = TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("实时坐姿监测", color = TextSecondary, fontSize = 16.sp)
+            Text(s.realtimeMonitor, color = TextSecondary, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("需要相机权限来分析您的坐姿", color = TextMuted, fontSize = 14.sp)
+            Text(s.cameraNeeded, color = TextMuted, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = onRequest,
@@ -156,9 +153,9 @@ private fun PermissionScreen(onRequest: () -> Unit) {
                 colors = ButtonDefaults.buttonColors(containerColor = PgGreen),
                 modifier = Modifier.padding(horizontal = 32.dp)
             ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = "授权相机", modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.CameraAlt, contentDescription = s.grantCamera, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("授权相机", fontSize = 16.sp)
+                Text(s.grantCamera, fontSize = 16.sp)
             }
         }
     }
@@ -169,6 +166,7 @@ fun CameraScreen(vm: PostureGuardViewModel) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by vm.uiState.collectAsState()
+    val s = stringsFor(uiState.settings.alertLanguage)
     val config = LocalConfiguration.current
     val isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -255,9 +253,9 @@ fun CameraScreen(vm: PostureGuardViewModel) {
 
         // Overlay layer (pause takes priority over eco)
         if (uiState.isPaused) {
-            PauseOverlay(remaining = uiState.pauseRemainingSeconds)
+            PauseOverlay(remaining = uiState.pauseRemainingSeconds, s = s)
         } else if (uiState.isEcoMode) {
-            EcoModeOverlay()
+            EcoModeOverlay(s = s)
         }
 
         // Skeleton overlay
@@ -276,12 +274,12 @@ fun CameraScreen(vm: PostureGuardViewModel) {
 
         // Top bar
         Box(modifier = Modifier.align(Alignment.TopStart)) {
-            TopBar(uiState = uiState, vm = vm, isLandscape = isLandscape)
+            TopBar(uiState = uiState, vm = vm, isLandscape = isLandscape, s = s)
         }
 
         // Bottom panel
         Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-            BottomPanel(vm = vm, uiState = uiState, isLandscape = isLandscape)
+            BottomPanel(vm = vm, uiState = uiState, isLandscape = isLandscape, s = s)
         }
 
         // NO_PERSON pause suggestion
@@ -295,23 +293,23 @@ fun CameraScreen(vm: PostureGuardViewModel) {
                     TextButton(onClick = {
                         vm.togglePause()
                         vm.dismissPauseSuggestion()
-                    }) { Text("暂停", color = PgGreen) }
+                    }) { Text(s.pauseAction, color = PgGreen) }
                 },
                 dismissAction = {
                     TextButton(onClick = { vm.dismissPauseSuggestion() }) {
-                        Text("忽略", color = TextMuted)
+                        Text(s.ignoreAction, color = TextMuted)
                     }
                 },
                 containerColor = SurfaceCard
             ) {
-                Text("长时间未检测到人，是否暂停监测？", color = TextPrimary, fontSize = 14.sp)
+                Text(s.noPersonPause, color = TextPrimary, fontSize = 14.sp)
             }
         }
     }
 }
 
 @Composable
-private fun EcoModeOverlay() {
+private fun EcoModeOverlay(s: S) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -331,20 +329,20 @@ private fun EcoModeOverlay() {
             )
             Icon(
                 Icons.Default.PowerSettingsNew,
-                contentDescription = "省电模式",
+                contentDescription = s.ecoMode,
                 modifier = Modifier.size(48.dp * pulse),
                 tint = PgGreen
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Text("省电模式", color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(s.ecoMode, color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("检测仍在后台运行", color = TextMuted, fontSize = 14.sp)
+            Text(s.ecoModeDesc, color = TextMuted, fontSize = 14.sp)
         }
     }
 }
 
 @Composable
-private fun PauseOverlay(remaining: Int) {
+private fun PauseOverlay(remaining: Int, s: S) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -354,17 +352,17 @@ private fun PauseOverlay(remaining: Int) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 Icons.Default.Pause,
-                contentDescription = "已暂停",
+                contentDescription = s.paused,
                 modifier = Modifier.size(48.dp),
                 tint = PgOrange
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Text("已暂停", color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(s.paused, color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             val min = remaining / 60
             val sec = remaining % 60
             Text(
-                "${min}分${sec}秒后自动恢复",
+                s.autoResumeIn(min, sec),
                 color = PgOrange,
                 fontSize = 16.sp
             )
@@ -399,7 +397,7 @@ private fun SkeletonOverlay(landmarks: List<Landmark3D>) {
 }
 
 @Composable
-private fun TopBar(uiState: UiState, vm: PostureGuardViewModel, isLandscape: Boolean = false) {
+private fun TopBar(uiState: UiState, vm: PostureGuardViewModel, isLandscape: Boolean = false, s: S = StringsZh) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -420,7 +418,7 @@ private fun TopBar(uiState: UiState, vm: PostureGuardViewModel, isLandscape: Boo
             ) {
                 Icon(
                     Icons.Default.Settings,
-                    contentDescription = "设置",
+                    contentDescription = s.settings,
                     tint = TextSecondary,
                     modifier = Modifier.size(20.dp)
                 )
@@ -444,19 +442,19 @@ private fun TopBar(uiState: UiState, vm: PostureGuardViewModel, isLandscape: Boo
             ) {
                 Icon(
                     Icons.Default.History,
-                    contentDescription = "历史记录",
+                    contentDescription = s.history,
                     tint = TextSecondary,
                     modifier = Modifier.size(20.dp)
                 )
             }
             Spacer(modifier = Modifier.width(4.dp))
-            PostureStatusBadge(state = uiState.currentPosture)
+            PostureStatusBadge(state = uiState.currentPosture, s = s)
         }
     }
 }
 
 @Composable
-private fun PostureStatusBadge(state: PostureState) {
+private fun PostureStatusBadge(state: PostureState, s: S = StringsZh) {
     val color by animateColorAsState(
         targetValue = when (state) {
             PostureState.GOOD -> PgGreen
@@ -467,9 +465,9 @@ private fun PostureStatusBadge(state: PostureState) {
         label = "statusColor"
     )
     val label = when (state) {
-        PostureState.GOOD -> "良好"
-        PostureState.NO_PERSON -> "无人"
-        else -> "异常"
+        PostureState.GOOD -> s.statusGood
+        PostureState.NO_PERSON -> s.statusNone
+        else -> s.statusBad
     }
     val icon: ImageVector = when (state) {
         PostureState.GOOD -> Icons.Default.CheckCircle
@@ -493,7 +491,7 @@ private fun PostureStatusBadge(state: PostureState) {
 }
 
 @Composable
-private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape: Boolean = false) {
+private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape: Boolean = false, s: S = StringsZh) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -516,7 +514,7 @@ private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape
                 PostureRing(state = uiState.currentPosture, ringSize = 48.dp)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.Start) {
-                    PostureStateText(state = uiState.currentPosture, compact = true)
+                    PostureStateText(state = uiState.currentPosture, compact = true, s = s)
                     if (uiState.showDebug && uiState.diagnosis != null) {
                         DebugInfoBadge(diagnosis = uiState.diagnosis)
                     }
@@ -530,7 +528,7 @@ private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape
             // Portrait layout (original)
             PostureRing(state = uiState.currentPosture)
             Spacer(modifier = Modifier.height(8.dp))
-            PostureStateText(state = uiState.currentPosture)
+            PostureStateText(state = uiState.currentPosture, s = s)
             Spacer(modifier = Modifier.height(4.dp))
             if (uiState.showDebug && uiState.diagnosis != null) {
                 DebugInfoBadge(diagnosis = uiState.diagnosis)
@@ -544,15 +542,15 @@ private fun BottomPanel(vm: PostureGuardViewModel, uiState: UiState, isLandscape
 
         // Calibration indicator
         if (uiState.isCalibrating) {
-            CalibrationProgressBadge(countdown = uiState.calibCountdown)
+            CalibrationProgressBadge(countdown = uiState.calibCountdown, s = s)
         } else if (uiState.calibration != null) {
-            CalibratedBadge()
+            CalibratedBadge(s = s)
         }
 
         Spacer(modifier = Modifier.height(if (isLandscape) 2.dp else 8.dp))
 
         // Control buttons
-        ControlButtons(vm = vm, uiState = uiState)
+        ControlButtons(vm = vm, uiState = uiState, s = s)
     }
 }
 
@@ -622,14 +620,14 @@ private fun PostureRing(state: PostureState, ringSize: Dp = 80.dp) {
 }
 
 @Composable
-private fun PostureStateText(state: PostureState, compact: Boolean = false) {
+private fun PostureStateText(state: PostureState, compact: Boolean = false, s: S = StringsZh) {
     val text = when (state) {
-        PostureState.GOOD -> "坐姿良好"
-        PostureState.BAD_TILT -> "头部侧歪"
-        PostureState.BAD_SLOUCH -> "肩膀不平"
-        PostureState.BAD_FORWARD_HEAD -> "头部前倾"
-        PostureState.BAD_HUNCHBACK -> "驼背"
-        PostureState.NO_PERSON -> "未检测到人"
+        PostureState.GOOD -> s.goodPosture
+        PostureState.BAD_TILT -> s.headTilt
+        PostureState.BAD_SLOUCH -> s.shoulderUneven
+        PostureState.BAD_FORWARD_HEAD -> s.forwardHead
+        PostureState.BAD_HUNCHBACK -> s.hunchback
+        PostureState.NO_PERSON -> s.noPerson
     }
     val color by animateColorAsState(
         targetValue = when (state) {
@@ -642,7 +640,7 @@ private fun PostureStateText(state: PostureState, compact: Boolean = false) {
     )
     Text(text, color = color, fontSize = if (compact) 14.sp else 18.sp, fontWeight = FontWeight.Bold)
     if (!compact && state == PostureState.NO_PERSON) {
-        Text("请坐在摄像头前方", color = TextMuted, fontSize = 13.sp)
+        Text(s.sitInFront, color = TextMuted, fontSize = 13.sp)
     }
 }
 
@@ -667,7 +665,7 @@ private fun DebugInfoBadge(diagnosis: PostureDiagnosis) {
 }
 
 @Composable
-private fun CalibrationProgressBadge(countdown: Int) {
+private fun CalibrationProgressBadge(countdown: Int, s: S = StringsZh) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = PgBlue.copy(alpha = 0.3f)
@@ -684,13 +682,13 @@ private fun CalibrationProgressBadge(countdown: Int) {
                 )
                 Spacer(modifier = Modifier.width(6.dp))
             }
-            Text("校准中... $countdown", color = PgBlue, fontSize = 13.sp)
+            Text("${s.calibrating} $countdown", color = PgBlue, fontSize = 13.sp)
         }
     }
 }
 
 @Composable
-private fun CalibratedBadge() {
+private fun CalibratedBadge(s: S = StringsZh) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = PgGreen.copy(alpha = 0.15f)
@@ -699,9 +697,9 @@ private fun CalibratedBadge() {
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Check, contentDescription = "已校准", tint = PgGreen, modifier = Modifier.size(12.dp))
+            Icon(Icons.Default.Check, contentDescription = s.calibrated, tint = PgGreen, modifier = Modifier.size(12.dp))
             Spacer(modifier = Modifier.width(3.dp))
-            Text("已校准", color = PgGreen, fontSize = 11.sp)
+            Text(s.calibrated, color = PgGreen, fontSize = 11.sp)
         }
     }
 }
@@ -756,7 +754,7 @@ private fun formatDuration(seconds: Long): String {
 }
 
 @Composable
-private fun ControlButtons(vm: PostureGuardViewModel, uiState: UiState) {
+private fun ControlButtons(vm: PostureGuardViewModel, uiState: UiState, s: S = StringsZh) {
     var showCalibDialog by remember { mutableStateOf(false) }
 
     if (showCalibDialog) {
@@ -765,7 +763,8 @@ private fun ControlButtons(vm: PostureGuardViewModel, uiState: UiState) {
             onStart = {
                 showCalibDialog = false
                 vm.startCalibration()
-            }
+            },
+            s = s
         )
     }
 
@@ -776,20 +775,20 @@ private fun ControlButtons(vm: PostureGuardViewModel, uiState: UiState) {
     ) {
         ControlButton(
             icon = if (uiState.isEcoMode) Icons.Default.Visibility else Icons.Default.PowerSettingsNew,
-            label = if (uiState.isEcoMode) "画面" else "省电",
+            label = if (uiState.isEcoMode) s.preview else s.ecoMode,
             onClick = vm::toggleEcoMode,
             modifier = Modifier.weight(1f)
         )
         ControlButton(
             icon = if (uiState.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-            label = if (uiState.isPaused) "继续" else "暂停",
+            label = if (uiState.isPaused) s.resume else s.pause,
             onClick = vm::togglePause,
             color = if (uiState.isPaused) PgOrange else TextSecondary,
             modifier = Modifier.weight(1f)
         )
         ControlButton(
             icon = Icons.Default.Tune,
-            label = if (uiState.isCalibrating) "校准中" else "校准",
+            label = if (uiState.isCalibrating) s.calibrating else s.calibrate,
             onClick = {
                 if (uiState.isCalibrating) return@ControlButton
                 showCalibDialog = true
@@ -799,7 +798,7 @@ private fun ControlButtons(vm: PostureGuardViewModel, uiState: UiState) {
         )
         ControlButton(
             icon = if (uiState.showDebug) Icons.Default.VisibilityOff else Icons.Default.BugReport,
-            label = if (uiState.showDebug) "隐藏" else "调试",
+            label = if (uiState.showDebug) s.hide else s.debug,
             onClick = vm::toggleDebug,
             modifier = Modifier.weight(1f)
         )
@@ -834,7 +833,8 @@ private fun ControlButton(
 @Composable
 private fun CalibrationInfoDialog(
     onDismiss: () -> Unit,
-    onStart: () -> Unit
+    onStart: () -> Unit,
+    s: S = StringsZh
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -842,46 +842,42 @@ private fun CalibrationInfoDialog(
         containerColor = Color(0xFF1A1A2E),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Tune, contentDescription = "坐姿校准", tint = PgBlue, modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Tune, contentDescription = s.calibTitle, tint = PgBlue, modifier = Modifier.size(22.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("坐姿校准", color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text(s.calibTitle, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column {
-                Text(
-                    "校准会记录你当前的坐姿作为「标准姿势」，后续检测会以此为基准判断偏差。",
-                    color = TextSecondary,
-                    fontSize = 14.sp
-                )
+                Text(s.calibDesc, color = TextSecondary, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = "第一步", tint = PgGreen, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.CheckCircle, contentDescription = "1", tint = PgGreen, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("先调整到正确坐姿", color = TextSecondary, fontSize = 13.sp)
+                    Text(s.calibStep1, color = TextSecondary, fontSize = 13.sp)
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Timer, contentDescription = "第二步", tint = PgBlue, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Timer, contentDescription = "2", tint = PgBlue, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("保持 3 秒完成采集", color = TextSecondary, fontSize = 13.sp)
+                    Text(s.calibStep2, color = TextSecondary, fontSize = 13.sp)
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Save, contentDescription = "第三步", tint = PgOrange, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Save, contentDescription = "3", tint = PgOrange, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("校准结果自动保存，下次无需重新校准", color = TextSecondary, fontSize = 13.sp)
+                    Text(s.calibStep3, color = TextSecondary, fontSize = 13.sp)
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onStart) {
-                Text("开始校准", color = PgGreen, fontWeight = FontWeight.Bold)
+                Text(s.startCalibration, color = PgGreen, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消", color = TextMuted)
+                Text(s.cancel, color = TextMuted)
             }
         }
     )
