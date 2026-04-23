@@ -1,6 +1,8 @@
 package com.example.postureguard
 
 import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.Toast
@@ -86,14 +88,21 @@ fun PostureGuardApp(vm: PostureGuardViewModel = viewModel()) {
 
 @Composable
 private fun MainWithPermission(vm: PostureGuardViewModel) {
-    var hasCameraPermission by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted -> hasCameraPermission = granted }
     )
 
     LaunchedEffect(Unit) {
-        launcher.launch(Manifest.permission.CAMERA)
+        if (!hasCameraPermission) {
+            launcher.launch(Manifest.permission.CAMERA)
+        }
     }
 
     if (hasCameraPermission) {
