@@ -91,8 +91,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/RichardLoZC/posture_detect.git
-cd posture_detect
+git clone https://github.com/RichardLoZC/upright.git
+cd upright
 
 # 构建并安装到设备
 ./gradlew installDebug
@@ -154,6 +154,17 @@ app/src/main/assets/
 ### 省电模式
 
 跳过 3/4 的帧，将分析帧率从约 16 FPS 降至约 4 FPS，在保持检测可靠性的同时显著降低功耗。
+
+## 测试平台
+
+| 平台 | 设备 | 系统 | 结果 |
+|------|------|------|------|
+| 真机 | Xiaomi 14 Pro | Android 16 | 全部通过 |
+| 姿态检测 | MediaPipe Pose Landmarker Full (GPU) | — | ~16 FPS |
+| 横屏（左/右） | — | — | 已验证 |
+| 多语言（中/英） | — | — | 已验证 |
+
+单元测试：`./gradlew testDebugUnitTest` — 全部通过。
 
 ## 开发路线
 

@@ -91,7 +91,7 @@ Front Camera → CameraX ImageAnalysis → MediaPipe Pose Landmarker (Full)
 
 ```bash
 # Clone the repository
-git clone https://github.com/RichardLoZC/posture_detect.git
+git clone https://github.com/RichardLoZC/upright.git
 cd posture_detect
 
 # Build and install on connected device
@@ -154,6 +154,17 @@ The app uses a debounce mechanism to prevent rapid state flickering:
 ### Eco Mode
 
 Reduces processing load by skipping 3 out of 4 frames, effectively lowering analysis from ~16 FPS to ~4 FPS while maintaining detection reliability.
+
+## Tested On
+
+| Platform | Device | OS | Result |
+|----------|--------|----|--------|
+| Physical Device | Xiaomi 14 Pro | Android 16 | Full pass |
+| Pose Detection | MediaPipe Pose Landmarker Full (GPU) | — | ~16 FPS |
+| Landscape (Left/Right) | — | — | Verified |
+| Multi-language (EN/ZH) | — | — | Verified |
+
+Unit tests: `./gradlew testDebugUnitTest` — all pass.
 
 ## Roadmap
 
